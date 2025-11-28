@@ -121,13 +121,52 @@ async def main():
         scraper = WisconsinScraper(config=JOB_CONFIG)
         results = await scraper.run_scraper()
 
+        # if results is None:
+        #     log.error(f"Case {case_no} unavailable.")
+        #     break
+
+        # if html_indicates_unavailable(results.get("html")):
+        #     log.warning(f"Case {case_no} indicates unavailable, stopping loop.")
+        #     break
+        
+               
+        # ----------------------------------------------------
+        # ❌ CASE 1 — SCRAPER FAILURE
+        # ----------------------------------------------------
         if results is None:
-            log.error(f"Case {case_no} unavailable.")
+            log.error(f"❌ Scraper failed for case {case_no}. Adding next job and stopping.")
+
+            prev_docket = str(int(JOB_CONFIG["docketNumber"]) - 1).zfill(len(JOB_CONFIG["docketNumber"]))
+
+            next_job_payload = {
+                "courtOfficeDetails": {
+                    "InitialURL": JOB_CONFIG["InitialURL"],
+                    "stateName": JOB_CONFIG["stateName"],
+                    "stateAbbreviation": JOB_CONFIG["stateAbbreviation"],
+                    "urlFormat": court_details.get("urlFormat"),
+                    "countyNo": JOB_CONFIG["countyNo"],
+                    "countyName": JOB_CONFIG["countyName"],
+                    "docketNumber": prev_docket,
+                    "docketYear": JOB_CONFIG["docketYear"],
+                    "docketType": JOB_CONFIG["docketType"]
+                }
+            }
+
+            try:
+                add_response = api_client.post("/WI_Downloader_Job_To_SQS_ADD", next_job_payload)
+                log.info(f"Next job added (failure case): {add_response}")
+            except Exception as e:
+                log.error(f"Failed to add next job: {e}")
+
             break
 
+        # ----------------------------------------------------
+        # ❗ CASE 2 — SUCCESS BUT NO RECORD FOUND
+        # ----------------------------------------------------
         if html_indicates_unavailable(results.get("html")):
-            log.warning(f"Case {case_no} indicates unavailable, stopping loop.")
+            log.warning(f"⚠ Case {case_no} indicates 'no record found'. Stopping WITHOUT creating next job.")
             break
+
 
         # Save HTML and JSON
         html_path = save_html_file(

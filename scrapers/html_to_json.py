@@ -1,4 +1,3 @@
-
 # scrapers/html_to_json.py
 from bs4 import BeautifulSoup
 import re
@@ -439,6 +438,31 @@ def parse_html_file_to_json(html_path: str, job_config: Optional[dict] = None) -
                         "amount": _parse_money(tds[4]) if len(tds) > 4 else None
                     }
                     records.append(rec)
+
+    # --- POST-PROCESS: merge "Additional text:" rows into previous record as "additional_text" ---
+    merged_records: List[Dict[str, Any]] = []
+    additional_re = re.compile(r'^\s*Additional\s*text\s*:\s*(.*)', re.I)
+    for rec in records:
+        event_text = rec.get("event") or ""
+        m = additional_re.match(event_text)
+        if rec.get("date") is None and m:
+            add_txt = m.group(1).strip()
+            if merged_records:
+                prev = merged_records[-1]
+                # Only attach if previous exists; concatenate if already present
+                if prev.get("additional_text"):
+                    prev["additional_text"] = prev["additional_text"].rstrip() + "\n" + add_txt
+                else:
+                    prev["additional_text"] = add_txt
+                # Do NOT append this 'Additional text' record to merged_records (it's merged)
+            else:
+                # No previous record: keep the record but move text into additional_text and keep it
+                rec["additional_text"] = add_txt
+                merged_records.append(rec)
+        else:
+            merged_records.append(rec)
+    # replace records with merged_records
+    records = merged_records
 
     # finalize docket_info from citations list (if values exist)
     if citations:

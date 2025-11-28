@@ -140,6 +140,11 @@ def merge_cases(cases: List[Dict[str, Any]]) -> Dict[str, Any]:
         for record in case.get('court_records', []):
             record_copy = record.copy()
             record_copy['docket_number'] = case_number
+            
+            # Ensure additional_text field exists
+            if 'additional_text' not in record_copy:
+                record_copy['additional_text'] = ""
+            
             merged['court_records'].append(record_copy)
     
     # Sort court records by date
