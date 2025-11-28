@@ -1,0 +1,93 @@
+{
+  "state": "WI",
+  "county": "Dane",
+  "case_title": "State of Wisconsin vs. Brandon Michael Willie",
+  "download_date": "2025-11-28T15:34:41.553552Z",
+  "docket_information": {
+    "filing_date": "2025-11-26",
+    "case_type": "Traffic Forfeiture",
+    "plate": "",
+    "state_code": "WI",
+    "expiration": "",
+    "vin": "",
+    "violation_date": "2025-10-10",
+    "officer": "",
+    "issuing_agency": "University Police"
+  },
+  "charges": [
+    {
+      "case_number": "2025TR015576",
+      "citation_number": null,
+      "bond_amount": 175.3,
+      "statute": "346.37(1)(c)2",
+      "description": "Bicyclist/EPAMD/Electric Scooter Violate Red Traffic Light",
+      "severity": "Forf. U",
+      "ordinance_or_statute": "Statute",
+      "plaintiff_agency": "State of Wisconsin",
+      "mph_over": null,
+      "case_url": "https://wcca.wicourts.gov/caseDetail.html?caseNo=2025TR015576&countyNo=6&index=0&isAdvanced=true&mode=details"
+    }
+  ],
+  "persons": [
+    {
+      "person_type": "defendant",
+      "name_last": "Willie",
+      "name_first": "Brandon",
+      "name_middle": "Michael",
+      "sex": "Male",
+      "race": "Caucasian",
+      "dob": "10-2000",
+      "address": {
+        "line1": "16500 Cemetery Rd",
+        "city": "Kiel",
+        "state": "WI",
+        "zip": "53042"
+      }
+    },
+    {
+      "person_type": "plaintiff",
+      "is_organization": true,
+      "name": "District Attorney"
+    },
+    {
+      "person_type": "officer",
+      "name_last": "Commissioner",
+      "name_first": "Initial Appearance"
+    }
+  ],
+  "court_activities": [],
+  "court_records": [
+    {
+      "date": null,
+      "event": "Additional text: received from defendant, forwarded to Commissioner.",
+      "court_official": null,
+      "court_reporter": null,
+      "amount": null,
+      "docket_number": "2025TR015576"
+    },
+    {
+      "date": "2025-11-26",
+      "event": "Letters/correspondence",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "docket_number": "2025TR015576"
+    },
+    {
+      "date": "2025-11-26",
+      "event": "Citation filed",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "docket_number": "2025TR015576"
+    },
+    {
+      "date": "2025-11-26",
+      "event": "Case initiated by electronic filing",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "docket_number": "2025TR015576"
+    }
+  ]
+}

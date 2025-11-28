@@ -1,0 +1,155 @@
+{
+  "state": "WI",
+  "county": "Eau Claire",
+  "case_title": "State of Wisconsin vs. Tatum L Larson",
+  "download_date": "2025-11-28T15:34:41.554207Z",
+  "docket_information": {
+    "filing_date": "2025-11-26",
+    "case_type": "Criminal",
+    "plate": null,
+    "state_code": "WI",
+    "expiration": null,
+    "vin": null,
+    "violation_date": null,
+    "officer": null,
+    "issuing_agency": null
+  },
+  "charges": [
+    {
+      "case_number": "2025CM000961",
+      "citation_number": null,
+      "bond_amount": null,
+      "statute": "943.01(1)",
+      "description": "Criminal Damage to Property",
+      "severity": "Misd. A",
+      "ordinance_or_statute": null,
+      "plaintiff_agency": null,
+      "mph_over": null,
+      "case_url": "https://wcca.wicourts.gov/caseDetail.html?caseNo=2025CM000961&countyNo=6&index=0&isAdvanced=true&mode=details"
+    }
+  ],
+  "persons": [
+    {
+      "person_type": "defendant",
+      "name_last": "Larson",
+      "name_first": "Tatum",
+      "name_middle": "L",
+      "sex": "Female",
+      "race": "Caucasian",
+      "dob": "06-12-2007",
+      "address": {
+        "line1": "W5840 Sunny Nook Rd",
+        "city": "Mondovi",
+        "state": "WI",
+        "zip": "54755"
+      }
+    },
+    {
+      "person_type": "plaintiff",
+      "is_organization": true,
+      "name": "District Attorney"
+    },
+    {
+      "person_type": "prosecuting_agency",
+      "is_organization": true,
+      "name": "Garcia, Danny"
+    },
+    {
+      "person_type": "officer",
+      "name_last": "Harless",
+      "name_first": "Sarah"
+    }
+  ],
+  "court_activities": [
+    {
+      "date": "2026-01-12",
+      "time": "09:30 am",
+      "location": "Branch 2 Courtroom - Room 2120",
+      "description": "Hearing",
+      "type": "Court",
+      "court_official": "Hoffer, Douglas"
+    }
+  ],
+  "court_records": [
+    {
+      "date": null,
+      "event": "Additional text: Conditions: No violent/abusive contact toward anyone.",
+      "court_official": null,
+      "court_reporter": null,
+      "amount": null,
+      "docket_number": "2025CM000961"
+    },
+    {
+      "date": null,
+      "event": "Additional text: 11:02am Defendant Tatum L Larson appeared by video, in custody from the Eau Claire County Jail with Attorney Jonathan Holger. Deputy District Attorney Angela Beranek in court for the State of Wisconsin. Waives reading of the complaint. Court orders a $1000 signature bond. Settlement Conference (by phone) with District Attorney's Office (715-839-4828) on 01/05/26 at 2:45pm Hearing: 01/12/26 at 9:30am",
+      "court_official": null,
+      "court_reporter": null,
+      "amount": null,
+      "docket_number": "2025CM000961"
+    },
+    {
+      "date": null,
+      "event": "Additional text: Conditions: No violent/abusive contact toward anyone.",
+      "court_official": null,
+      "court_reporter": null,
+      "amount": null,
+      "docket_number": "2025CM000961"
+    },
+    {
+      "date": "2025-11-26",
+      "event": "Signature bond signed",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": 1000.0,
+      "docket_number": "2025CM000961"
+    },
+    {
+      "date": "2025-11-26",
+      "event": "Video conferencing",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "docket_number": "2025CM000961"
+    },
+    {
+      "date": "2025-11-26",
+      "event": "Initial appearance",
+      "court_official": "Harless, Sarah",
+      "court_reporter": "Peil, Stephanie",
+      "amount": null,
+      "docket_number": "2025CM000961"
+    },
+    {
+      "date": "2025-11-26",
+      "event": "Signature bond set for Larson, Tatum L",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": 1000.0,
+      "docket_number": "2025CM000961"
+    },
+    {
+      "date": "2025-11-26",
+      "event": "Electronic Filing Notice",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "docket_number": "2025CM000961"
+    },
+    {
+      "date": "2025-11-26",
+      "event": "Case initiated by electronic filing",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "docket_number": "2025CM000961"
+    },
+    {
+      "date": "2025-11-26",
+      "event": "Complaint filed",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "docket_number": "2025CM000961"
+    }
+  ]
+}

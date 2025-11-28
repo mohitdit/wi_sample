@@ -36,20 +36,18 @@ UNAVAILABLE_SNIPPET_2 = "That case does not exist or you are not allowed to see 
 # ----------------------------------------
 # HELPERS
 # ----------------------------------------
-def save_html_file(html_content: str, docket: str, county_name: str) -> str:
-    os.makedirs(HTML_OUTPUT_DIR, exist_ok=True) 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    file_name = f"{docket}{county_name.replace(' ', '')}_{timestamp}.html"
+def save_html_file(html_content: str, state_abbr: str, county_id: str, docket_type: str, docket_year: str, docket_number: str) -> str:
+    os.makedirs(HTML_OUTPUT_DIR, exist_ok=True)
+    file_name = f"{state_abbr}_{county_id}_{docket_year}_{docket_type}_{docket_number}.html"
     file_path = os.path.join(HTML_OUTPUT_DIR, file_name)
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(html_content)
     return file_path
 
-def save_json_file(obj: dict, docket: str, county_name: str) -> str:
-    os.makedirs(JSON_OUTPUT_DIR, exist_ok=True) 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    file_name = f"{docket}{county_name.replace(' ', '')}_{timestamp}.json"
-    file_path = os.path.join(JSON_OUTPUT_DIR, file_name) 
+def save_json_file(obj: dict, state_abbr: str, county_id: str,docket_type: str, docket_year: str, docket_number: str) -> str:
+    os.makedirs(JSON_OUTPUT_DIR, exist_ok=True)
+    file_name = f"{state_abbr}_{county_id}_{docket_year}_{docket_type}_{docket_number}.json"
+    file_path = os.path.join(JSON_OUTPUT_DIR, file_name)
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(obj, f, indent=2)
     return file_path
@@ -104,7 +102,7 @@ async def main():
         log.error(f"API call failed: {e}")
         print("API call failed:", e)
         return
-        
+
     start_number = int(JOB_CONFIG["docketNumber"]) + 1
     max_attempts = 100  # Optional safety limit
 
@@ -132,13 +130,27 @@ async def main():
             break
 
         # Save HTML and JSON
-        html_path = save_html_file(results.get("html", ""), docket_number, JOB_CONFIG["countyName"])
+        html_path = save_html_file(
+            results.get("html", ""), 
+            JOB_CONFIG["stateAbbreviation"],
+            str(JOB_CONFIG["countyNo"]),
+            str(JOB_CONFIG["docketYear"]),
+            str(JOB_CONFIG["docketType"]),
+            docket_number
+        )
         
         log.info(f"Saved HTML: {html_path}")
         
         # Parse saved html and produce structured json
         json_obj = parse_html_file_to_json(html_path, JOB_CONFIG)
-        json_path = save_json_file(json_obj, docket_number, JOB_CONFIG["countyName"])
+        json_path = save_json_file(
+            json_obj, 
+            JOB_CONFIG["stateAbbreviation"],
+            str(JOB_CONFIG["countyNo"]),
+            str(JOB_CONFIG["docketYear"]),
+            str(JOB_CONFIG["docketType"]),
+            docket_number
+        )
         log.info(f"Saved JSON: {json_path}")
 
     # ----------------------------------------
