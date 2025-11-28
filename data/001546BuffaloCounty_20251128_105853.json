@@ -1,0 +1,82 @@
+{
+  "state": "WI",
+  "county": "Buffalo",
+  "caption": "County of Buffalo vs. Judithann C Goeldner",
+  "docket_information": {
+    "filing_date": "2025-11-17",
+    "case_type": "Traffic Forfeiture",
+    "plate": "VZ7101",
+    "state_code": "WI",
+    "expiration": "2026",
+    "vin": "2CNDL037986306517",
+    "violation_date": "2025-09-28",
+    "officer": "Hoffman, Briana",
+    "issuing_agency": "Buffalo County Sheriff"
+  },
+  "charges": [
+    {
+      "case_number": "2025TR001546",
+      "citation_number": null,
+      "bond_amount": 1062.5,
+      "statute": "346.63(1)(b)",
+      "description": "Operating w/ PAC >=0.08, <0.15 (1st)",
+      "severity": "Forf. U",
+      "ordinance_or_statute": "Statute",
+      "plaintiff_agency": "County of Buffalo",
+      "mph_over": null
+    }
+  ],
+  "persons": [
+    {
+      "person_type": "defendant",
+      "name_last": "Goeldner",
+      "name_first": "Judithann",
+      "name_middle": "C",
+      "sex": "Female",
+      "race": "Caucasian",
+      "dob": "05-1954",
+      "address": {
+        "line1": null,
+        "city": null,
+        "state": null,
+        "zip": null
+      }
+    },
+    {
+      "person_type": "plaintiff",
+      "is_organization": true,
+      "name": "District Attorney"
+    },
+    {
+      "person_type": "officer",
+      "name_last": "Clark",
+      "name_first": "Thomas W."
+    }
+  ],
+  "court_activities": [
+    {
+      "date": "2026-02-03",
+      "time": "08:15 am",
+      "location": "Buffalo County Courthouse",
+      "description": "Initial appearance",
+      "type": "Court",
+      "court_official": "Clark, Thomas W."
+    }
+  ],
+  "court_records": [
+    {
+      "date": "2025-11-17",
+      "event": "Citation filed",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null
+    },
+    {
+      "date": "2025-11-17",
+      "event": "Case initiated by electronic filing",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null
+    }
+  ]
+}

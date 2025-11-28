@@ -1,0 +1,82 @@
+{
+  "state": "WI",
+  "county": "Buffalo",
+  "caption": "County of Buffalo vs. Rachel Leigh Heinrich",
+  "docket_information": {
+    "filing_date": "2025-11-20",
+    "case_type": "Traffic Forfeiture",
+    "plate": "AXT7222",
+    "state_code": "WI",
+    "expiration": "2026",
+    "vin": "JM1BL1L78C1685930",
+    "violation_date": "2025-11-17",
+    "officer": "",
+    "issuing_agency": "Buffalo County Sheriff"
+  },
+  "charges": [
+    {
+      "case_number": "2025TR001561",
+      "citation_number": null,
+      "bond_amount": 200.5,
+      "statute": "346.57(5)",
+      "description": "Exceeding Speed Zones, etc. (16-19 MPH)",
+      "severity": "Forf. U",
+      "ordinance_or_statute": "Statute",
+      "plaintiff_agency": "County of Buffalo",
+      "mph_over": null
+    }
+  ],
+  "persons": [
+    {
+      "person_type": "defendant",
+      "name_last": "Heinrich",
+      "name_first": "Rachel",
+      "name_middle": "Leigh",
+      "sex": "Female",
+      "race": "Caucasian",
+      "dob": "11-2001",
+      "address": {
+        "line1": null,
+        "city": null,
+        "state": null,
+        "zip": null
+      }
+    },
+    {
+      "person_type": "plaintiff",
+      "is_organization": true,
+      "name": "District Attorney"
+    },
+    {
+      "person_type": "officer",
+      "name_last": "Clark",
+      "name_first": "Thomas W."
+    }
+  ],
+  "court_activities": [
+    {
+      "date": "2026-02-03",
+      "time": "08:15 am",
+      "location": "Buffalo County Courthouse",
+      "description": "Initial appearance",
+      "type": "Court",
+      "court_official": "Clark, Thomas W."
+    }
+  ],
+  "court_records": [
+    {
+      "date": "2025-11-20",
+      "event": "Citation filed",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null
+    },
+    {
+      "date": "2025-11-20",
+      "event": "Case initiated by electronic filing",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null
+    }
+  ]
+}

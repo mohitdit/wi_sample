@@ -1,0 +1,82 @@
+{
+  "state": "WI",
+  "county": "Buffalo",
+  "caption": "County of Buffalo vs. Walter Henry Rice",
+  "docket_information": {
+    "filing_date": "2025-11-17",
+    "case_type": "Traffic Forfeiture",
+    "plate": "ABP1329",
+    "state_code": "WI",
+    "expiration": "2026",
+    "vin": "WDBUF65J24A451210",
+    "violation_date": "2025-11-15",
+    "officer": "Howell, Ryan",
+    "issuing_agency": "Buffalo County Sheriff"
+  },
+  "charges": [
+    {
+      "case_number": "2025TR001554",
+      "citation_number": null,
+      "bond_amount": 250.9,
+      "statute": "346.57(4)(h)",
+      "description": "Speeding in 55 MPH Zone (25-29 MPH)",
+      "severity": "Forf. U",
+      "ordinance_or_statute": "Statute",
+      "plaintiff_agency": "County of Buffalo",
+      "mph_over": null
+    }
+  ],
+  "persons": [
+    {
+      "person_type": "defendant",
+      "name_last": "Rice",
+      "name_first": "Walter",
+      "name_middle": "Henry",
+      "sex": "Male",
+      "race": "African American",
+      "dob": "03-1959",
+      "address": {
+        "line1": null,
+        "city": null,
+        "state": null,
+        "zip": null
+      }
+    },
+    {
+      "person_type": "plaintiff",
+      "is_organization": true,
+      "name": "District Attorney"
+    },
+    {
+      "person_type": "officer",
+      "name_last": "Clark",
+      "name_first": "Thomas W."
+    }
+  ],
+  "court_activities": [
+    {
+      "date": "2026-01-06",
+      "time": "08:15 am",
+      "location": "Buffalo County Courthouse",
+      "description": "Initial appearance",
+      "type": "Court",
+      "court_official": "Clark, Thomas W."
+    }
+  ],
+  "court_records": [
+    {
+      "date": "2025-11-17",
+      "event": "Citation filed",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null
+    },
+    {
+      "date": "2025-11-17",
+      "event": "Case initiated by electronic filing",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null
+    }
+  ]
+}
