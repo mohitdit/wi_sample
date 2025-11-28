@@ -2,6 +2,7 @@ import os
 import json
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
+
 from scrapers.base_scraper import BaseScraper
 from utils.captcha_solver import solve_puzzle_captcha
 from utils.browser_manager import get_stealth_browser
@@ -180,7 +181,7 @@ class WisconsinScraper(BaseScraper):
                         timeout=30000  # e.g. up to 5 minutes; adjust as you like
                     )
                     log.info("✅ Manual CAPTCHA solve detected.")
-                except TimeoutError:
+                except PlaywrightTimeoutError:
                     log.error("❌ Manual CAPTCHA not solved within allowed time.")
                     await browser.close()
                     return None
