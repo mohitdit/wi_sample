@@ -5,6 +5,9 @@ from datetime import datetime
 from scrapers.wisconsin_scraper import WisconsinScraper
 from utils.logger import log
 from scrapers.html_to_json import parse_html_file_to_json
+from case_grouper import run_grouping
+from api.api import ApiClient
+
 # ----------------------------------------
 # CONFIG
 # ----------------------------------------
@@ -22,7 +25,9 @@ JOB_CONFIG = {
     "docketUpdateDateTime": "2025-11-11T10:10:00Z"
 }
 
-OUTPUT_DIR = "data"
+HTML_OUTPUT_DIR = "data/htmldata"
+JSON_OUTPUT_DIR = "data/jsonconverteddata"
+GROUPED_OUTPUT_DIR = "data/groupeddata"
 
 UNAVAILABLE_TITLE = "Your request could not be processed."
 UNAVAILABLE_SNIPPET_1 = "Your request could not be processed."
@@ -32,19 +37,19 @@ UNAVAILABLE_SNIPPET_2 = "That case does not exist or you are not allowed to see 
 # HELPERS
 # ----------------------------------------
 def save_html_file(html_content: str, docket: str, county_name: str) -> str:
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(HTML_OUTPUT_DIR, exist_ok=True) 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_name = f"{docket}{county_name.replace(' ', '')}_{timestamp}.html"
-    file_path = os.path.join(OUTPUT_DIR, file_name)
+    file_path = os.path.join(HTML_OUTPUT_DIR, file_name)
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(html_content)
     return file_path
 
 def save_json_file(obj: dict, docket: str, county_name: str) -> str:
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    os.makedirs(JSON_OUTPUT_DIR, exist_ok=True) 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_name = f"{docket}{county_name.replace(' ', '')}_{timestamp}.json"
-    file_path = os.path.join(OUTPUT_DIR, file_name)
+    file_path = os.path.join(JSON_OUTPUT_DIR, file_name) 
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(obj, f, indent=2)
     return file_path
@@ -61,7 +66,46 @@ def html_indicates_unavailable(html: str) -> bool:
 # MAIN LOOP
 # ----------------------------------------
 async def main():
-    start_number = int(JOB_CONFIG["docketNumber"])
+
+    api_client = ApiClient()
+
+    try:
+        api_response = api_client.post("/WI_Downloader_Job_SQS_GET", {})
+        log.info(f"API call successful. Response: {api_response}")
+        print("API Response:", api_response)
+        print()  # one line space
+
+        # Extract docket details from API response
+        court_details = api_response.get("courtOfficeDetails")
+        if not court_details:
+            log.error("No docket details received from API.")
+            return
+
+        # Create JOB_CONFIG from API response
+        JOB_CONFIG = {
+            "InitialURL": court_details.get("InitialURL"),
+            "stateName": court_details.get("stateName"),
+            "stateAbbreviation": court_details.get("stateAbbreviation"),
+           "urlFormat": court_details.get("urlFormat")
+                    .replace('[','{')
+                    .replace(']','}')
+                    .replace('{DocketYear}{DocketType}{MaxDocketNumber}', '{caseNo}'),
+            "countyNo": court_details.get("countyNo"),
+            "countyName": court_details.get("countyName"),
+            "docketNumber": court_details.get("docketNumber"),
+            "docketType": court_details.get("docketType"),
+            "docketYear": court_details.get("docketYear"),
+            # Add static fields if needed
+            "IsDownloadRequired": "true",
+            "docketUpdateDateTime": "2025-11-11T10:10:00Z"
+        }
+
+    except Exception as e:
+        log.error(f"API call failed: {e}")
+        print("API call failed:", e)
+        return
+        
+    start_number = int(JOB_CONFIG["docketNumber"]) + 1
     max_attempts = 100  # Optional safety limit
 
     for i in range(max_attempts):
@@ -91,11 +135,24 @@ async def main():
         html_path = save_html_file(results.get("html", ""), docket_number, JOB_CONFIG["countyName"])
         
         log.info(f"Saved HTML: {html_path}")
-                # parse saved html and produce structured json
-        json_obj = parse_html_file_to_json(html_path, JOB_CONFIG)
-        json_path = save_json_file(json_obj, docket_number, JOB_CONFIG["countyName"]); log.info(f"Saved JSON: {json_path}")
-
         
+        # Parse saved html and produce structured json
+        json_obj = parse_html_file_to_json(html_path, JOB_CONFIG)
+        json_path = save_json_file(json_obj, docket_number, JOB_CONFIG["countyName"])
+        log.info(f"Saved JSON: {json_path}")
+
+    # ----------------------------------------
+    # GROUP ALL CASES AFTER SCRAPING IS DONE
+    # ----------------------------------------
+    log.info("\n" + "="*60)
+    log.info("All scraping complete! Starting case grouping...")
+    log.info("="*60)
+    
+    run_grouping(data_dir=JSON_OUTPUT_DIR, output_dir=GROUPED_OUTPUT_DIR)
+    
+    log.info("\n" + "="*60)
+    log.info("✅ ALL TASKS COMPLETE!")
+    log.info("="*60)
 
 if __name__ == "__main__":
     asyncio.run(main())

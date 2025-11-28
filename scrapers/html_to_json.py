@@ -216,6 +216,12 @@ def parse_html_file_to_json(html_path: str, job_config: Optional[dict] = None) -
             docket_info["filing_date"] = _iso_date_from_mm_dd_yyyy(summary_map["filing date"])
         if "case type" in summary_map:
             docket_info["case_type"] = summary_map["case type"]
+        # Extract address from summary
+        summary_address = None
+        for key in summary_map.keys():
+            if key.startswith("address"):
+                summary_address = summary_map[key]
+                break
         # DOB format is sometimes here; address we'll parse elsewhere
 
     # citations section - there may be one or more .citation blocks
@@ -349,9 +355,13 @@ def parse_html_file_to_json(html_path: str, job_config: Optional[dict] = None) -
                 }
             })
         # address parsing (REPLACED BLOCK)
-        addr = def_map.get("address") or ""
-        if persons and addr:
-            parsed_addr = _parse_address(addr)
+        # addr = None
+        # for key in def_map.keys():
+        #     if key.startswith("address"):
+        #         addr = def_map[key]
+        #         break
+        if persons and summary_address:
+            parsed_addr = _parse_address(summary_address)
             persons[0]["address"]["line1"] = parsed_addr["line1"]
             persons[0]["address"]["city"] = parsed_addr["city"]
             persons[0]["address"]["state"] = parsed_addr["state"]

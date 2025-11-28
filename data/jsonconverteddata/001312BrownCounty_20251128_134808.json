@@ -1,0 +1,115 @@
+{
+  "state": "WI",
+  "county": "Brown",
+  "caption": "State of Wisconsin vs. Angela Ann Larson",
+  "docket_information": {
+    "filing_date": "2025-11-26",
+    "case_type": "Criminal",
+    "plate": null,
+    "state_code": "WI",
+    "expiration": null,
+    "vin": null,
+    "violation_date": null,
+    "officer": null,
+    "issuing_agency": null
+  },
+  "charges": [
+    {
+      "case_number": "2025CM001312",
+      "citation_number": null,
+      "bond_amount": null,
+      "statute": "946.49(1)(a)",
+      "description": "Bail Jumping-Misdemeanor",
+      "severity": "Misd. A",
+      "ordinance_or_statute": null,
+      "plaintiff_agency": null,
+      "mph_over": null
+    }
+  ],
+  "persons": [
+    {
+      "person_type": "defendant",
+      "name_last": "Larson",
+      "name_first": "Angela",
+      "name_middle": "Ann",
+      "sex": "Female",
+      "race": "African American",
+      "dob": "12-19-1995",
+      "address": {
+        "line1": "1542 Cass Street #B",
+        "city": "Green Bay",
+        "state": "WI",
+        "zip": "54302"
+      }
+    },
+    {
+      "person_type": "plaintiff",
+      "is_organization": true,
+      "name": "District Attorney"
+    },
+    {
+      "person_type": "prosecuting_agency",
+      "is_organization": true,
+      "name": "Poulin, Brian M."
+    },
+    {
+      "person_type": "officer",
+      "name_last": "Hinkfuss",
+      "name_first": "Timothy A"
+    }
+  ],
+  "court_activities": [
+    {
+      "date": "2025-11-26",
+      "time": "02:00 pm",
+      "location": "Commissioners Courtroom A - 1st Floor, Room 150",
+      "description": "Initial appearance",
+      "type": "Court",
+      "court_official": "Zuidmulder, Kate"
+    }
+  ],
+  "court_records": [
+    {
+      "date": "2025-11-26",
+      "event": "Report",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null
+    },
+    {
+      "date": null,
+      "event": "Additional text: BCCJS PSA Report",
+      "court_official": null,
+      "court_reporter": null,
+      "amount": null
+    },
+    {
+      "date": "2025-11-26",
+      "event": "Electronic Filing Notice",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null
+    },
+    {
+      "date": "2025-11-26",
+      "event": "Case initiated by electronic filing",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null
+    },
+    {
+      "date": "2025-11-26",
+      "event": "Complaint filed",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null
+    },
+    {
+      "date": null,
+      "event": "Additional text: PER RULE 500",
+      "court_official": null,
+      "court_reporter": null,
+      "amount": null
+    }
+  ]
+}
