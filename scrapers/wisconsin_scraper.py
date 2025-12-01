@@ -2,7 +2,6 @@ import os
 import json
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
-
 from scrapers.base_scraper import BaseScraper
 from utils.captcha_solver import solve_puzzle_captcha
 from utils.browser_manager import get_stealth_browser
@@ -178,7 +177,7 @@ class WisconsinScraper(BaseScraper):
                     await page.wait_for_function(
                         "() => !document.body.innerText.includes('Please complete the CAPTCHA') "
                         "|| document.body.innerText.includes('Case Summary')",
-                        timeout=30000  # e.g. up to 5 minutes; adjust as you like
+                        timeout=10000  # e.g. up to 5 minutes; adjust as you like
                     )
                     log.info("✅ Manual CAPTCHA solve detected.")
                 except PlaywrightTimeoutError:
@@ -193,7 +192,7 @@ class WisconsinScraper(BaseScraper):
 
             elif result is False:
                 # No CAPTCHA present
-                log.info("ℹ No CAPTCHA detected, continuing.")
+                log.info(" No CAPTCHA detected, continuing.")
                 break
             else:
                 # result is None → fatal error; abort this docket
@@ -201,30 +200,23 @@ class WisconsinScraper(BaseScraper):
                 await browser.close()
                 return None
 
-                # --- STEP 4: VERIFY SUCCESS & SAVE COOKIES ---
+        # --- STEP 4: VERIFY SUCCESS & SAVE COOKIES ---
         try:
             await page.wait_for_selector("text=Case Summary", timeout=15000)
             log.info("✅ Case Summary Loaded.")
-            status = "ok"
-        except PlaywrightTimeoutError:
-            log.error("❌ Could not load Case Summary. CAPTCHA failed or case unavailable.")
-            status = "failed"
 
-        # 👉 ALWAYS try to save cookies, even if status == "failed"
-        try:
+            # Save the valid session so next time we may skip CAPTCHA
             cookies = await context.cookies()
             with open(COOKIE_FILE, "w", encoding="utf-8") as f:
                 json.dump(cookies, f, indent=2)
             log.info("💾 Session cookies saved for future use.")
-        except Exception as e:
-            log.error(f"❌ Failed to save cookies: {e}")
 
-        html = await page.content()
-        await context.close()
-        await browser.close()
-
-        return None
-
+        except PlaywrightTimeoutError:
+            log.error("❌ Could not load Case Summary. CAPTCHA failed or case unavailable.")
+            html = await page.content()
+            await context.close()
+            await browser.close()
+            return {"docket": docket, "html": html, "status": "failed"}
 
         # --- STEP 5: RETURN HTML ---
         html = await page.content()
