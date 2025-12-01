@@ -197,6 +197,7 @@ def parse_html_file_to_json(html_path: str, job_config: Optional[dict] = None) -
     docket_info = {
         "filing_date": None,
         "case_type": None,
+        "case_status":None,
         "plate": None,
         "state_code": state_abbr,
         "expiration": None,
@@ -215,6 +216,8 @@ def parse_html_file_to_json(html_path: str, job_config: Optional[dict] = None) -
             docket_info["filing_date"] = _iso_date_from_mm_dd_yyyy(summary_map["filing date"])
         if "case type" in summary_map:
             docket_info["case_type"] = summary_map["case type"]
+        if "case status" in summary_map:
+            docket_info["case_status"] = summary_map["case status"]
         # Extract address from summary
         summary_address = None
         for key in summary_map.keys():
@@ -253,16 +256,25 @@ def parse_html_file_to_json(html_path: str, job_config: Optional[dict] = None) -
                     dd = bond_dl.find_next_sibling("dd")
                     bond_val = _parse_money(_clean_text(dd))
                 # assemble citation object
+                # Check for modifier in description
+                description = fields.get("charge description") or fields.get("description")
+                is_modified = False
+                if description:
+                    desc_lower = description.lower()
+                    if "modifier:" in desc_lower or "modified:" in desc_lower:
+                        is_modified = True
+                
                 citation_obj = {
                     "case_number": None,  # we may set this to caseNo from job_config or derive
                     "citation_number": None,
                     "bond_amount": bond_val,
                     "statute": fields.get("statute"),
-                    "description": fields.get("charge description") or fields.get("description"),
+                    "description": description,
                     "severity": fields.get("severity"),
                     "ordinance_or_statute": fields.get("ordinance or statute") or fields.get("ordinance or statute"),
                     "plaintiff_agency": fields.get("plaintff agency") or fields.get("plaintff agency") or fields.get("plaintiff agency"),
-                    "mph_over": None
+                    "mph_over": None,
+                    "isModified": "true" if is_modified else "false"
                 }
                 # some fields that appear differently
                 # plate
@@ -305,16 +317,25 @@ def parse_html_file_to_json(html_path: str, job_config: Optional[dict] = None) -
                     tds = [ _clean_text(td) for td in tr.find_all(["td","th"]) ]
                     # heuristic based on headers: Count no., Statute, Description, Severity, Disposition
                     if len(tds) >= 4:
+                        # Check if description contains "Modifier:" or "Modified:"
+                        description = tds[2] if len(tds) > 2 else None
+                        is_modified = False
+                        if description:
+                            desc_lower = description.lower()
+                            if "modifier:" in desc_lower or "modified:" in desc_lower:
+                                is_modified = True
+
                         citations.append({
                             "case_number": None,
                             "citation_number": None,
                             "bond_amount": None,
                             "statute": tds[1] if len(tds) > 1 else None,
-                            "description": tds[2] if len(tds) > 2 else None,
+                            "description": description,
                             "severity": tds[3] if len(tds) > 3 else None,
                             "ordinance_or_statute": None,
                             "plaintiff_agency": None,
-                            "mph_over": None
+                            "mph_over": None,
+                            "isModified": "true" if is_modified else "false"
                         })
 
     # persons: defendant, plaintiff, prosecuting_agency, officer
@@ -376,14 +397,14 @@ def parse_html_file_to_json(html_path: str, job_config: Optional[dict] = None) -
         responsible_official = charge_map.get("responsible official") or charge_map.get("responsible official")
         if prosecutor:
             persons.append({
-                "person_type": "plaintiff",
+                "person_type": "prosecuting_agency",
                 "is_organization": True,
                 "name": prosecutor
             })
         if prosecutor_attny:
             persons.append({
-                "person_type": "prosecuting_agency",
-                "is_organization": True,
+                "person_type": "prosecuting_agency_attorney",
+                "is_organization": False,
                 "name": prosecutor_attny
             })
         if responsible_official:

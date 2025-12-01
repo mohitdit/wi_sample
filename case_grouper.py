@@ -93,6 +93,7 @@ def merge_cases(cases: List[Dict[str, Any]]) -> Dict[str, Any]:
     merged = {
         "state": cases[0].get('state'),
         "county": cases[0].get('county'),
+        
         "case_title": cases[0].get('caption'),
         "download_date": datetime.now().isoformat() + "Z",
         "docket_information": cases[0].get('docket_information', {}).copy(),
@@ -101,9 +102,10 @@ def merge_cases(cases: List[Dict[str, Any]]) -> Dict[str, Any]:
         "court_activities": [],
         "court_records": []
     }
-    
+    county_no = cases[0].get('docket_information', {}).get('county_no') or 6
+
     # Build case URL helper
-    def build_case_url(case_number: str, county_no: int = 6) -> str:
+    def build_case_url(case_number: str) -> str:
         return f"https://wcca.wicourts.gov/caseDetail.html?caseNo={case_number}&countyNo={county_no}&index=0&isAdvanced=true&mode=details"
     
     # Collect all charges from all cases

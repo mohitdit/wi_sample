@@ -2,6 +2,7 @@ import os
 import json
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
+
 from scrapers.base_scraper import BaseScraper
 from utils.captcha_solver import solve_puzzle_captcha
 from utils.browser_manager import get_stealth_browser
