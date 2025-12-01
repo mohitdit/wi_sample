@@ -7,16 +7,27 @@ from typing import List, Dict, Any
 def load_json_files(data_dir: str = "data/jsonconverteddata") -> List[Dict[str, Any]]:
     """Load all JSON files from the data directory."""
     cases = []
-    for filename in os.listdir(data_dir):
-        if filename.endswith('.json'):
-            filepath = os.path.join(data_dir, filename)
-            with open(filepath, 'r', encoding='utf-8') as f:
-                try:
-                    case_data = json.load(f)
-                    cases.append(case_data)
-                except json.JSONDecodeError:
-                    print(f"⚠ Skipping invalid JSON: {filename}")
+
+    # ✅ Handle missing directory gracefully
+    if not os.path.isdir(data_dir):
+        print(f"⚠ Data directory not found: {data_dir}. No cases to load.")
+        return cases
+
+    files = [f for f in os.listdir(data_dir) if f.endswith(".json")]
+    if not files:
+        print(f"⚠ No JSON files found in: {data_dir}")
+        return cases
+
+    for filename in files:
+        filepath = os.path.join(data_dir, filename)
+        with open(filepath, "r", encoding="utf-8") as f:
+            try:
+                case_data = json.load(f)
+                cases.append(case_data)
+            except json.JSONDecodeError:
+                print(f"⚠ Skipping invalid JSON: {filename}")
     return cases
+
 
 def create_grouping_key(case: Dict[str, Any]) -> tuple:
     """
@@ -135,16 +146,16 @@ def merge_cases(cases: List[Dict[str, Any]]) -> Dict[str, Any]:
             case_number = charge.get('case_number')
             if case_number:
                 break
-        
+
         # Add court records with docket_number
         for record in case.get('court_records', []):
             record_copy = record.copy()
             record_copy['docket_number'] = case_number
-            
+
             # Ensure additional_text field exists
             if 'additional_text' not in record_copy:
                 record_copy['additional_text'] = ""
-            
+
             merged['court_records'].append(record_copy)
     
     # Sort court records by date

@@ -121,51 +121,51 @@ async def main():
         scraper = WisconsinScraper(config=JOB_CONFIG)
         results = await scraper.run_scraper()
 
-        # if results is None:
-        #     log.error(f"Case {case_no} unavailable.")
-        #     break
+        if results is None:
+            log.error(f"Case {case_no} unavailable.")
+            break
 
-        # if html_indicates_unavailable(results.get("html")):
-        #     log.warning(f"Case {case_no} indicates unavailable, stopping loop.")
-        #     break
+        if html_indicates_unavailable(results.get("html")):
+            log.warning(f"Case {case_no} indicates unavailable, stopping loop.")
+            break
         
                
-        # ----------------------------------------------------
-        # ❌ CASE 1 — SCRAPER FAILURE
-        # ----------------------------------------------------
-        if results is None:
-            log.error(f"❌ Scraper failed for case {case_no}. Adding next job and stopping.")
+        # # ----------------------------------------------------
+        # # ❌ CASE 1 — SCRAPER FAILURE
+        # # ----------------------------------------------------
+        # if results is None:
+        #     log.error(f"❌ Scraper failed for case {case_no}. Adding next job and stopping.")
 
-            prev_docket = str(int(JOB_CONFIG["docketNumber"]) - 1).zfill(len(JOB_CONFIG["docketNumber"]))
+        #     prev_docket = str(int(JOB_CONFIG["docketNumber"]) - 1).zfill(len(JOB_CONFIG["docketNumber"]))
 
-            next_job_payload = {
-                "courtOfficeDetails": {
-                    "InitialURL": JOB_CONFIG["InitialURL"],
-                    "stateName": JOB_CONFIG["stateName"],
-                    "stateAbbreviation": JOB_CONFIG["stateAbbreviation"],
-                    "urlFormat": court_details.get("urlFormat"),
-                    "countyNo": JOB_CONFIG["countyNo"],
-                    "countyName": JOB_CONFIG["countyName"],
-                    "docketNumber": prev_docket,
-                    "docketYear": JOB_CONFIG["docketYear"],
-                    "docketType": JOB_CONFIG["docketType"]
-                }
-            }
+        #     next_job_payload = {
+        #         "courtOfficeDetails": {
+        #             "InitialURL": JOB_CONFIG["InitialURL"],
+        #             "stateName": JOB_CONFIG["stateName"],
+        #             "stateAbbreviation": JOB_CONFIG["stateAbbreviation"],
+        #             "urlFormat": court_details.get("urlFormat"),
+        #             "countyNo": JOB_CONFIG["countyNo"],
+        #             "countyName": JOB_CONFIG["countyName"],
+        #             "docketNumber": prev_docket,
+        #             "docketYear": JOB_CONFIG["docketYear"],
+        #             "docketType": JOB_CONFIG["docketType"]
+        #         }
+        #     }
 
-            try:
-                add_response = api_client.post("/WI_Downloader_Job_To_SQS_ADD", next_job_payload)
-                log.info(f"Next job added (failure case): {add_response}")
-            except Exception as e:
-                log.error(f"Failed to add next job: {e}")
+        #     try:
+        #         add_response = api_client.post("/WI_Downloader_Job_To_SQS_ADD", next_job_payload)
+        #         log.info(f"Next job added (failure case): {add_response}")
+        #     except Exception as e:
+        #         log.error(f"Failed to add next job: {e}")
 
-            break
+        #     break
 
-        # ----------------------------------------------------
-        # ❗ CASE 2 — SUCCESS BUT NO RECORD FOUND
-        # ----------------------------------------------------
-        if html_indicates_unavailable(results.get("html")):
-            log.warning(f"⚠ Case {case_no} indicates 'no record found'. Stopping WITHOUT creating next job.")
-            break
+        # # ----------------------------------------------------
+        # # ❗ CASE 2 — SUCCESS BUT NO RECORD FOUND
+        # # ----------------------------------------------------
+        # if html_indicates_unavailable(results.get("html")):
+        #     log.warning(f"⚠ Case {case_no} indicates 'no record found'. Stopping WITHOUT creating next job.")
+        #     break
 
 
         # Save HTML and JSON
@@ -196,14 +196,24 @@ async def main():
     # GROUP ALL CASES AFTER SCRAPING IS DONE
     # ----------------------------------------
     log.info("\n" + "="*60)
-    log.info("All scraping complete! Starting case grouping...")
+    log.info("All scraping complete! Checking if there is data to group...")
     log.info("="*60)
-    
-    run_grouping(data_dir=JSON_OUTPUT_DIR, output_dir=GROUPED_OUTPUT_DIR)
-    
-    log.info("\n" + "="*60)
-    log.info("✅ ALL TASKS COMPLETE!")
-    log.info("="*60)
+
+    # ✅ Only run grouping if directory exists and has JSON files
+    if os.path.isdir(JSON_OUTPUT_DIR) and any(
+        f.lower().endswith(".json") for f in os.listdir(JSON_OUTPUT_DIR)
+    ):
+        log.info("JSON data found. Starting case grouping...")
+        run_grouping(data_dir=JSON_OUTPUT_DIR, output_dir=GROUPED_OUTPUT_DIR)
+        log.info("\n" + "="*60)
+        log.info("✅ ALL TASKS COMPLETE!")
+        log.info("="*60)
+    else:
+        log.warning(f"No JSON files found in {JSON_OUTPUT_DIR}. Skipping grouping step.")
+        log.info("\n" + "="*60)
+        log.info("✅ SCRAPING COMPLETE, BUT NO DATA TO GROUP.")
+        log.info("="*60)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

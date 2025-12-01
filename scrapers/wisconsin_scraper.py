@@ -120,7 +120,7 @@ class WisconsinScraper(BaseScraper):
     async def run_scraper(self):
         """
         Run the scraper for the current JOB_CONFIG.
-        On any *fatal* CAPTCHA error, returns None so the main loop stops
+        On any fatal CAPTCHA error, returns None so the main loop stops
         and does not save HTML for that docket.
 
         If auto-solve fails but user solves manually, cookies will still
