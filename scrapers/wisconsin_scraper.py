@@ -1,85 +1,131 @@
 import os
 import json
-import asyncio
-from utils.captcha_solver import solve_captcha
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+
+
+from scrapers.base_scraper import BaseScraper
+from utils.captcha_solver import solve_puzzle_captcha
 from utils.browser_manager import get_stealth_browser
 from utils.logger import log
-from playwright.async_api import TimeoutError as PlaywrightTimeoutError
-from scrapers.base_scraper import BaseScraper
 
-# Define the cookie file path
 COOKIE_FILE = "wcca_cookies.json"
+
 
 class WisconsinScraper(BaseScraper):
 
+    async def get_geetest_params(self, page):
+        """
+        Extract dynamic gt and challenge parameters from the page.
+        Adjust selectors if WCCA uses different names/ids.
+        """
+        log.info("🔎 Searching for Geetest gt/challenge parameters...")
+
+        GT_SELECTOR = "input[name='gt']"
+        CHALLENGE_SELECTOR = "input[name='challenge']"
+
+        try:
+            gt_el = await page.wait_for_selector(GT_SELECTOR, timeout=20000)
+            ch_el = await page.wait_for_selector(CHALLENGE_SELECTOR, timeout=20000)
+
+            gt = await gt_el.get_attribute("value")
+            challenge = await ch_el.get_attribute("value")
+
+            if gt and challenge:
+                log.info(f"✅ gt={gt[:8]}..., challenge={challenge[:8]}...")
+                return gt, challenge
+
+        except PlaywrightTimeoutError:
+            log.error("❌ Timeout while waiting for gt/challenge fields.")
+        except Exception as e:
+            log.error(f"❌ Error extracting Geetest params: {e}")
+
+        return None, None   # note: tuple, not bare None
+
     async def detect_and_solve_captcha(self, page):
-        log.info("🔍 Checking for CAPTCHA...")
+        """
+        Returns:
+          True      -> CAPTCHA detected and solved automatically.
+          False     -> CAPTCHA not present.
+          "manual"  -> DBC failed; let user solve manually.
+          None      -> Fatal error; caller should stop and not continue.
+        """
+        log.info("🔍 Checking for CAPTCHA screen...")
 
-        # --- STEP 1: DETECT CAPTCHA PAGE ---
-        # Instead of looking for the image immediately, look for the warning text.
-        # The screenshot shows the text: "Please complete the CAPTCHA."
+        # Detect 'Please complete the CAPTCHA'
         try:
-            # We use a short timeout because we don't want to slow down normal scraping
-            captcha_present = await page.wait_for_selector("text=Please complete the CAPTCHA", timeout=3000)
-        except:
-            captcha_present = None
+            await page.wait_for_selector("text=Please complete the CAPTCHA", timeout=4000)
+            log.warning("⚠ CAPTCHA page detected.")
+        except Exception:
+            log.info("✅ No CAPTCHA text detected.")
+            return False
 
-        # If the text isn't there, check if the image exists anyway (just to be safe)
-        if not captcha_present:
-            if await page.is_visible("img#captcha"):
-                captcha_present = True
-            else:
-                log.info("✅ No CAPTCHA detected.")
-                return False 
+        # Click "Click here" to reveal puzzle
+        try:
+            await page.click("text=Click here", timeout=10000)
+            log.info("🖱 Clicked 'Click here' to reveal CAPTCHA.")
+            await page.wait_for_timeout(5000)
+        except Exception as e:
+            log.error(f"❌ Failed to click 'Click here': {e}")
+            return None
 
-        log.warning("⚠ CAPTCHA Page detected! Initiating solver...")
+        # Extract Geetest params
+        gt, challenge = await self.get_geetest_params(page)
+        if not gt or not challenge:
+            log.error("❌ Could not find gt/challenge; cannot solve CAPTCHA automatically.")
+            # Allow manual solve instead of killing the run
+            return "manual"
 
-        # --- STEP 2: REVEAL THE IMAGE ---
-        # The user noted we must click "Click here" for the image to appear.
-        is_image_visible = await page.is_visible("img#captcha")
-        
-        if not is_image_visible:
-            log.info("🖼 CAPTCHA image hidden. Clicking trigger link...")
+        current_url = page.url
+        solved_data = await solve_puzzle_captcha(gt, challenge, current_url)
+        if not solved_data:
+            log.error("❌ DBC did not return a valid Geetest solution; switching to manual mode.")
+            return "manual"
+
+        # Submit tokens back to page (auto-solve path).
+        VALIDATE_SELECTOR = "input[name='geetest_validate']"
+        SECCODE_SELECTOR = "input[name='geetest_seccode']"
+        CHALLENGE_SELECTOR_SUBMIT = "input[name='geetest_challenge']"
+
+        try:
+            await page.fill(CHALLENGE_SELECTOR_SUBMIT, solved_data["challenge"])
+            await page.fill(VALIDATE_SELECTOR, solved_data["validate"])
+            await page.fill(SECCODE_SELECTOR, solved_data["seccode"])
+            log.info("✅ Filled Geetest token fields.")
+
+            # Submit the main form (adjust selector if different)
+            await page.click("button[type=submit]")
+            log.info("✅ Submitted CAPTCHA form.")
+
+            # Wait until the CAPTCHA text disappears or Case Summary appears
             try:
-                # Click the "Click here" link inside the text "Click here if CAPTCHA..."
-                await page.click("text=Click here", timeout=3000)
-                
-                # Now wait for the image to actually load
-                await page.wait_for_selector("img#captcha", state="visible", timeout=5000)
-                log.info("✅ CAPTCHA image revealed.")
-            except Exception as e:
-                log.error(f"❌ Failed to click trigger link or load image: {e}")
-                return False
+                await page.wait_for_function(
+                    "() => !document.body.innerText.includes('Please complete the CAPTCHA')",
+                    timeout=15000,
+                )
+                log.info("✅ CAPTCHA message gone; likely solved.")
+            except PlaywrightTimeoutError:
+                log.warning("⚠ CAPTCHA text still present after timeout; might have failed.")
+                # If we got here, auto-solve probably failed; let user do it.
+                return "manual"
 
-        # --- STEP 3: CAPTURE & SOLVE ---
-        img_element = await page.query_selector("img#captcha")
-        if not img_element:
-            log.error("❌ CAPTCHA element not found in DOM.")
-            return False
-            
-        img_bytes = await img_element.screenshot()
-
-        # Send to DeathByCaptcha
-        solved_text = await solve_captcha(img_bytes)
-        log.info(f"🧩 CAPTCHA returned: {solved_text}")
-
-        if not solved_text:
-            log.error("❌ Failed to solve CAPTCHA (Empty response)")
-            return False
-
-        # --- STEP 4: SUBMIT ---
-        await page.fill("input#captchaAnswer", solved_text)
-        await page.click("button[type=submit]")
-        
-        # Wait for the "Please complete" text to disappear to confirm success
-        try:
-            await page.wait_for_function("() => !document.body.innerText.includes('Please complete the CAPTCHA')", timeout=5000)
-        except:
-            log.warning("Page did not navigate away immediately. Solver might have failed or site is slow.")
+        except PlaywrightTimeoutError:
+            log.error("❌ Timeout while submitting Geetest tokens.")
+            return None
+        except Exception as e:
+            log.error(f"❌ Failed to submit Geetest solution: {e}")
+            return None
 
         return True
 
     async def run_scraper(self):
+        """
+        Run the scraper for the current JOB_CONFIG.
+        On any fatal CAPTCHA error, returns None so the main loop stops
+        and does not save HTML for that docket.
+
+        If auto-solve fails but user solves manually, cookies will still
+        be saved once Case Summary is loaded and reused for later dockets.
+        """
         browser, context, page = await get_stealth_browser(False)
 
         case_url = self.build_case_url()
@@ -92,7 +138,7 @@ class WisconsinScraper(BaseScraper):
             try:
                 with open(COOKIE_FILE, "r", encoding="utf-8") as f:
                     cookies = json.load(f)
-                    await context.add_cookies(cookies)
+                await context.add_cookies(cookies)
                 log.info(f"🍪 Loaded {len(cookies)} cookies from session file.")
             except Exception as e:
                 log.error(f"Failed loading cookies: {e}")
@@ -106,42 +152,76 @@ class WisconsinScraper(BaseScraper):
             return None
 
         # --- STEP 3: HANDLE CAPTCHA ---
-        # We try to solve up to 3 times if it fails
         max_retries = 3
         for attempt in range(max_retries):
-            # Check if we are already in (Summary exists)
+            # If already inside, stop trying
             if await page.query_selector("text=Case Summary"):
+                log.info("✅ Case Summary already visible; no CAPTCHA.")
                 break
-            
-            # Check for Captcha
-            is_captcha = await self.detect_and_solve_captcha(page)
-            if is_captcha:
-                await page.wait_for_timeout(3000) # Give site time to process
+
+            result = await self.detect_and_solve_captcha(page)
+
+            if result is True:
+                # Solved automatically
+                log.info("⌛ Waiting for page after CAPTCHA auto-solve...")
+                await page.wait_for_timeout(3000)
+
+            elif result == "manual":
+                # User will solve Geetest manually in the browser.
+                log.warning(
+                    "🧑‍💻 Manual CAPTCHA mode: solve the puzzle in the browser window. "
+                    "Waiting for the CAPTCHA message to disappear or Case Summary to load..."
+                )
+
+                try:
+                    # Wait until either CAPTCHA text is gone OR Case Summary is visible.
+                    await page.wait_for_function(
+                        "() => !document.body.innerText.includes('Please complete the CAPTCHA') "
+                        "|| document.body.innerText.includes('Case Summary')",
+                        timeout=10000  # e.g. up to 5 minutes; adjust as you like
+                    )
+                    log.info("✅ Manual CAPTCHA solve detected.")
+                except PlaywrightTimeoutError:
+                    log.error("❌ Manual CAPTCHA not solved within allowed time.")
+                    await browser.close()
+                    return None
+
+                # Small delay after success, then continue to STEP 4
+                await page.wait_for_timeout(2000)
+                break
+
+
+            elif result is False:
+                # No CAPTCHA present
+                log.info(" No CAPTCHA detected, continuing.")
+                break
             else:
-                # If no captcha and no summary, maybe just slow loading or 404
-                break
+                # result is None → fatal error; abort this docket
+                log.error("❌ CAPTCHA solving failed fatally; aborting this docket.")
+                await browser.close()
+                return None
 
         # --- STEP 4: VERIFY SUCCESS & SAVE COOKIES ---
         try:
             await page.wait_for_selector("text=Case Summary", timeout=15000)
             log.info("✅ Case Summary Loaded.")
 
-            # *** CRITICAL FIX: SAVE COOKIES ***
-            # Save the valid session so next time we skip captcha
+            # Save the valid session so next time we may skip CAPTCHA
             cookies = await context.cookies()
             with open(COOKIE_FILE, "w", encoding="utf-8") as f:
                 json.dump(cookies, f, indent=2)
             log.info("💾 Session cookies saved for future use.")
 
         except PlaywrightTimeoutError:
-            log.error("❌ Could not load Case Summary. Captcha failed or Case Unavailable.")
-            # If we see "Your request could not be processed", return that html
+            log.error("❌ Could not load Case Summary. CAPTCHA failed or case unavailable.")
             html = await page.content()
+            await context.close()
             await browser.close()
             return {"docket": docket, "html": html, "status": "failed"}
 
+        # --- STEP 5: RETURN HTML ---
         html = await page.content()
-        
+
         await context.close()
         await browser.close()
 
