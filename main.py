@@ -105,6 +105,7 @@ async def main():
 
     start_number = int(JOB_CONFIG["docketNumber"]) + 1
     max_attempts = 100  # Optional safety limit
+    last_successful_docket = None  # Track last successful docket
 
     for i in range(max_attempts):
         docket_number = str(start_number + i).zfill(len(JOB_CONFIG["docketNumber"]))
@@ -164,9 +165,29 @@ async def main():
         # ❗ CASE 2 — SUCCESS BUT NO RECORD FOUND
         # ----------------------------------------------------
         if html_indicates_unavailable(results.get("html")):
-            log.warning(f"⚠ Case {case_no} indicates 'no record found'. Stopping WITHOUT creating next job.")
+            log.warning(f"⚠ Case {case_no} indicates 'no record found'. Calling UPDATE API and stopping.")
+            
+            if last_successful_docket:
+                update_payload = {
+                    "stateName": JOB_CONFIG["stateName"],
+                    "countyNo": JOB_CONFIG["countyNo"],
+                    "countyName": JOB_CONFIG["countyName"],
+                    "docketNumber": last_successful_docket,
+                    "docketYear": JOB_CONFIG["docketYear"],
+                    "docketType": JOB_CONFIG["docketType"]
+                }
+        
+                try:
+                    update_response = api_client.post("/WI_County_DocketNumber_UPDATE", update_payload)
+                    log.info(f"✅ UPDATE API called with docket {last_successful_docket}: {update_response}")
+                except Exception as e:
+                    log.error(f"❌ UPDATE API failed: {e}")
+            else:
+                log.warning("⚠ No successful docket found to update")
+            
             break
 
+        last_successful_docket = docket_number
 
         # Save HTML and JSON
         html_path = save_html_file(
@@ -198,8 +219,35 @@ async def main():
     log.info("\n" + "="*60)
     log.info("All scraping complete! Starting case grouping...")
     log.info("="*60)
-    
+
+    # Track existing files BEFORE grouping
+    existing_grouped_files = set()
+    if os.path.exists(GROUPED_OUTPUT_DIR):
+        existing_grouped_files = set(os.listdir(GROUPED_OUTPUT_DIR))
+
+    # Run grouping
     run_grouping(data_dir=JSON_OUTPUT_DIR, output_dir=GROUPED_OUTPUT_DIR)
+
+    # Find NEW files AFTER grouping
+    current_grouped_files = set(os.listdir(GROUPED_OUTPUT_DIR))
+    new_files = current_grouped_files - existing_grouped_files
+
+    # Send each NEW file to INSERT API
+    if new_files:
+        log.info(f"\n📤 Sending {len(new_files)} new grouped files to INSERT API...")
+        for filename in new_files:
+            filepath = os.path.join(GROUPED_OUTPUT_DIR, filename)
+            with open(filepath, 'r', encoding='utf-8') as f:
+                grouped_data = json.load(f)
+
+            try:
+                api_payload = [grouped_data]
+                insert_response = api_client.post("/WI_DataDockets_INSERT", api_payload)
+                log.info(f"✅ INSERT API called for {filename}: {insert_response}")
+            except Exception as e:
+                log.error(f"❌ INSERT API failed for {filename}: {e}")
+    else:
+        log.info("ℹ️ No new grouped files created")
     
     log.info("\n" + "="*60)
     log.info("✅ ALL TASKS COMPLETE!")
