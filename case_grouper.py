@@ -109,21 +109,18 @@ def merge_cases(cases: List[Dict[str, Any]]) -> Dict[str, Any]:
         return f"https://wcca.wicourts.gov/caseDetail.html?caseNo={case_number}&countyNo={county_no}&index=0&isAdvanced=true&mode=details"
     
     # Collect all charges from all cases
-        for case in cases:
-            case_number = None
-            # Get case number from docket or first charge
-            for charge in case.get('charges', []):
-                if charge.get('case_number'):
-                    case_number = charge.get('case_number')
-                    break
-            
-            # Add all charges for this case
-            for charge in case.get('charges', []):
-                charge_copy = charge.copy()
-                # Add case_url only to main charges (those with case_number field)
-                if 'case_number' in charge_copy and case_number:
-                    charge_copy['case_url'] = build_case_url(case_number)
-                merged['charges'].append(charge_copy)
+    for case in cases:
+        case_number = None
+        # Get case number from docket or first charge
+        for charge in case.get('charges', []):
+            if charge.get('case_number'):
+                case_number = charge.get('case_number')
+                break
+        # Add all charges for this case
+        for charge in case.get('charges', []):
+            charge_copy = charge.copy()
+            # Add case_url only to main charges (those with case_number field)
+            if 'case_number' in charge_copy and case_number:
     
     # Merge persons (avoid duplicates)
     seen_persons = set()

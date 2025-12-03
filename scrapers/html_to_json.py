@@ -228,57 +228,62 @@ def parse_html_file_to_json(html_path: str, job_config: Optional[dict] = None) -
         # DOB format is sometimes here; address we'll parse elsewhere
 
     # citations section - there may be one or more .citation blocks
-    citations = []
-    cit_section = content_col.find("section", id="citations")
-    if cit_section:
-        for cit in cit_section.find_all("div", class_="citation"):
-            # citation number header
-            header = cit.find("h5", class_="detailHeader")
-            citation_label = _clean_text(header) if header else ""
-            # inside citationDetail
-            detail = cit.find("div", class_="citationDetail")
-            fields = {}
-            if detail:
-                # parse dl groups
-                for dl in detail.find_all("dl"):
-                    dt = dl.find("dt")
-                    dd = dl.find("dd")
-                    if not dt:
-                        continue
-                    key = _clean_text(dt).lower()
-                    val = _clean_text(dd)
-                    fields[key] = val
-                # also parse bond / money spans
-                bond_node = detail.find(string=re.compile(r"Bond amount", re.I))
-                # alternatively find by dt text 'Bond amount'
+        citations = []
+        cit_section = content_col.find("section", id="citations")
+        if cit_section:
+            for cit in cit_section.find_all("div", class_="citation"):
+                # citation number header
+                header = cit.find("h5", class_="detailHeader")
+                citation_label = _clean_text(header) if header else ""
+                
+                # Extract citation number from header like "Citation BK1292303"
+                citation_number = None
+                if citation_label:
+                    m = re.search(r'Citation\s+(\S+)', citation_label, re.I)
+                    if m:
+                        citation_number = m.group(1).strip()
+                
+                # inside citationDetail
+                detail = cit.find("div", class_="citationDetail")
+                fields = {}
+                if detail:
+                    # parse dl groups
+                    for dl in detail.find_all("dl"):
+                        dt = dl.find("dt")
+                        dd = dl.find("dd")
+                        if not dt:
+                            continue
+                        key = _clean_text(dt).lower()
+                        val = _clean_text(dd)
+                        fields[key] = val
+                
+                # Extract bond amount
                 bond_val = None
-                bond_dl = detail.find("dt", string=re.compile(r"Bond amount", re.I))
-                if bond_dl:
-                    dd = bond_dl.find_next_sibling("dd")
-                    bond_val = _parse_money(_clean_text(dd))
-                # assemble citation object
-                # Check for modifier in description
-                description = fields.get("charge description") or fields.get("description")
-                is_modified = False
-                if description:
-                    desc_lower = description.lower()
-                    if "modifier:" in desc_lower or "modified:" in desc_lower:
-                        is_modified = True
-
+                if detail:
+                    bond_dd = detail.find("dt", string=re.compile(r"Bond amount", re.I))
+                    if bond_dd:
+                        dd = bond_dd.find_next_sibling("dd")
+                        if dd:
+                            bond_val = _parse_money(_clean_text(dd))
+                
+                # Build citation object
+                description = fields.get("charge description") or fields.get("description", "")
+                is_modified = "modifier:" in description.lower() or "modified:" in description.lower()
+                
                 citation_obj = {
-                    "case_number": None,  # we may set this to caseNo from job_config or derive
-                    "citation_number": None,
+                    "case_number": None,
+                    "citation_number": citation_number,
                     "bond_amount": bond_val,
                     "statute": fields.get("statute"),
                     "description": description,
                     "severity": fields.get("severity"),
-                    "ordinance_or_statute": fields.get("ordinance or statute") or fields.get("ordinance or statute"),
-                    "plaintiff_agency": fields.get("plaintff agency") or fields.get("plaintff agency") or fields.get("plaintiff agency"),
-                    "mph_over": None,
+                    "ordinance_or_statute": fields.get("ordinance or statute"),
+                    "plaintiff_agency": fields.get("plaintff agency") or fields.get("plaintiff agency"),
+                    "mph_over": fields.get("mph over"),
                     "isModified": "true" if is_modified else "false"
                 }
-                # some fields that appear differently
-                # plate
+                
+                # Update docket_info with citation details
                 if "plate number" in fields:
                     docket_info["plate"] = fields.get("plate number")
                 if "state" in fields:
@@ -293,67 +298,62 @@ def parse_html_file_to_json(html_path: str, job_config: Optional[dict] = None) -
                     docket_info["officer"] = fields.get("officer name")
                 if "violation date" in fields:
                     docket_info["violation_date"] = _iso_date_from_mm_dd_yyyy(fields.get("violation date"))
-                if "citation" in citation_label:
-                    # e.g. "Citation BN5747475" -> extract BN5747475
-                    m = re.search(r'Citation\s+(.+)', citation_label, re.I)
-                    if m:
-                        citation_obj["citation_number"] = m.group(1).strip()
-                # statute & description may already be set
-                if not citation_obj["statute"] and "statute" in fields:
-                    citation_obj["statute"] = fields.get("statute")
-                if not citation_obj["description"] and "charge description" in fields:
-                    citation_obj["description"] = fields.get("charge description")
-                # severity
-                if not citation_obj["severity"] and "severity" in fields:
-                    citation_obj["severity"] = fields.get("severity")
+                
                 citations.append(citation_obj)
 
-    # fallback: parse charges table in charges section (if citations empty)
+        # fallback: parse charges table in charges section (if citations empty)
         if not citations:
-            charge_table = content_col.find("table", class_=re.compile(r"charge-summary|group-colored", re.I))
-            if charge_table:
-                # Find all tbody elements (each charge+modifier is in separate tbody)
-                tbodies = charge_table.find_all("tbody")
-                for tbody in tbodies:
-                    rows = tbody.find_all("tr")
-                    current_count = None
-                    
-                    for tr in rows:
-                        tds = [_clean_text(td) for td in tr.find_all(["td", "th"])]
+            charge_section = content_col.find("section", id="charges")
+            if charge_section:
+                charge_table = charge_section.find("table", class_=re.compile(r"charge-summary|group-colored", re.I))
+                if charge_table:
+                    # Find all tbody elements (each charge+modifier is in separate tbody)
+                    tbodies = charge_table.find_all("tbody")
+                    for tbody in tbodies:
+                        rows = tbody.find_all("tr")
+                        current_count = None
                         
-                        # Check if this is a modifier row
-                        is_modifier_row = (len(tds) > 0 and 
-                                          tr.get("class") and 
-                                          "modifier" in tr.get("class"))
-                        
-                        if is_modifier_row:
-                            # This is a modifier row
-                            if len(tds) >= 3:
-                                citations.append({
-                                    "count_number": current_count,
-                                    "statute": tds[1] if len(tds) > 1 else None,
-                                    "description": tds[2] if len(tds) > 2 else None,
-                                    "severity": tds[3] if len(tds) > 3 else None,
-                                    "disposition": tds[4] if len(tds) > 4 else None,
-                                    "isModified": "true"
-                                })
-                        else:
-                            # This is a main charge row
-                            if len(tds) >= 4:
-                                current_count = tds[0] if len(tds) > 0 else None
-                                citations.append({
-                                    "case_number": None,
-                                    "citation_number": None,
-                                    "bond_amount": None,
-                                    "count_number": current_count,
-                                    "statute": tds[1] if len(tds) > 1 else None,
-                                    "description": tds[2] if len(tds) > 2 else None,
-                                    "severity": tds[3] if len(tds) > 3 else None,
-                                    "disposition": tds[4] if len(tds) > 4 else None,
-                                    "ordinance_or_statute": None,
-                                    "plaintiff_agency": None,
-                                    "mph_over": None
-                                })
+                        for tr in rows:
+                            tds = [_clean_text(td) for td in tr.find_all(["td", "th"])]
+                            
+                            # Check if this is a modifier row
+                            is_modifier_row = (tr.get("class") and "modifier" in str(tr.get("class")))
+                            
+                            if is_modifier_row:
+                                # This is a modifier row
+                                if len(tds) >= 3:
+                                    citations.append({
+                                        "case_number": None,
+                                        "citation_number": None,
+                                        "bond_amount": None,
+                                        "count_number": current_count,
+                                        "statute": tds[1] if len(tds) > 1 else None,
+                                        "description": tds[2] if len(tds) > 2 else None,
+                                        "severity": tds[3] if len(tds) > 3 else None,
+                                        "disposition": tds[4] if len(tds) > 4 else None,
+                                        "ordinance_or_statute": None,
+                                        "plaintiff_agency": None,
+                                        "mph_over": None,
+                                        "isModified": "true"
+                                    })
+                            else:
+                                # This is a main charge row
+                                if len(tds) >= 4:
+                                    current_count = tds[0] if len(tds) > 0 else None
+                                    citations.append({
+                                        "case_number": None,
+                                        "citation_number": None,
+                                        "bond_amount": None,
+                                        "count_number": current_count,
+                                        "statute": tds[1] if len(tds) > 1 else None,
+                                        "description": tds[2] if len(tds) > 2 else None,
+                                        "severity": tds[3] if len(tds) > 3 else None,
+                                        "disposition": tds[4] if len(tds) > 4 else None,
+                                        "ordinance_or_statute": None,
+                                        "plaintiff_agency": None,
+                                        "mph_over": None,
+                                        "isModified": "false"
+                                    })
 
     # persons: defendant, plaintiff, prosecuting_agency, officer
     persons = []
