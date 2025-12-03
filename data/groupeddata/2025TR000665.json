@@ -1,0 +1,77 @@
+{
+  "state": "WI",
+  "county": "Ashland",
+  "case_title": "Ashland County vs. Mary M Shepherdson",
+  "download_date": "2025-12-03T16:13:20.456651Z",
+  "docket_information": {
+    "filing_date": "2025-12-01",
+    "case_type": "Traffic Forfeiture",
+    "case_status": "Filed Only - Electronic filing",
+    "county_no": 2,
+    "plate": "SGC470",
+    "state_code": "NJ",
+    "expiration": "2026",
+    "vin": "JA4ARUAU1SU009038",
+    "violation_date": "2025-11-23",
+    "officer": "",
+    "issuing_agency": "Ashland County Sheriff"
+  },
+  "charges": [],
+  "persons": [
+    {
+      "person_type": "defendant",
+      "name_last": "Shepherdson",
+      "name_first": "Mary",
+      "name_middle": "M",
+      "sex": "Female",
+      "race": "Caucasian",
+      "dob": "06-1983",
+      "address": {
+        "line1": "301 Patriot Dr",
+        "city": "Logan",
+        "state": "NJ",
+        "zip": "08085"
+      }
+    },
+    {
+      "person_type": "prosecuting_agency",
+      "is_organization": true,
+      "name": "District Attorney"
+    },
+    {
+      "person_type": "officer",
+      "name_last": "McKnight",
+      "name_first": "Kelly J"
+    }
+  ],
+  "court_activities": [
+    {
+      "date": "2026-01-06",
+      "time": "10:00 am",
+      "location": "Ashland County Courthouse - Room 303",
+      "description": "Intake",
+      "type": "Court",
+      "court_official": "McKnight, Kelly J"
+    }
+  ],
+  "court_records": [
+    {
+      "date": "2025-12-01",
+      "event": "Citation filed",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "docket_number": "2025TR000665",
+      "additional_text": ""
+    },
+    {
+      "date": "2025-12-01",
+      "event": "Case initiated by electronic filing",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "docket_number": "2025TR000665",
+      "additional_text": ""
+    }
+  ]
+}

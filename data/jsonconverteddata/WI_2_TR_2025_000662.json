@@ -1,0 +1,85 @@
+{
+  "state": "WI",
+  "county": "Ashland",
+  "caption": "Ashland County vs. Aaliyah Ann Griffin",
+  "docket_information": {
+    "filing_date": "2025-12-01",
+    "case_type": "Traffic Forfeiture",
+    "case_status": "Filed Only - Electronic filing",
+    "county_no": 2,
+    "plate": "ASA5237",
+    "state_code": "WI",
+    "expiration": "2026",
+    "vin": "KMHLS4AG0PU572887",
+    "violation_date": "2025-11-27",
+    "officer": "Janecek, Jason A",
+    "issuing_agency": "Ashland County Sheriff"
+  },
+  "charges": [
+    {
+      "case_number": "2025TR000662",
+      "citation_number": null,
+      "bond_amount": 175.3,
+      "statute": "346.57(4)(h)",
+      "description": "Speeding in 55 MPH Zone (1-10 MPH)",
+      "severity": "Forf. U",
+      "ordinance_or_statute": "Statute",
+      "plaintiff_agency": "Ashland County",
+      "mph_over": null,
+      "isModified": "false"
+    }
+  ],
+  "persons": [
+    {
+      "person_type": "defendant",
+      "name_last": "Griffin",
+      "name_first": "Aaliyah",
+      "name_middle": "Ann",
+      "sex": "Female",
+      "race": "African American",
+      "dob": "11-1999",
+      "address": {
+        "line1": "721 1/2 Prentice Ave",
+        "city": "Ashland",
+        "state": "WI",
+        "zip": "54806"
+      }
+    },
+    {
+      "person_type": "prosecuting_agency",
+      "is_organization": true,
+      "name": "District Attorney"
+    },
+    {
+      "person_type": "officer",
+      "name_last": "McKnight",
+      "name_first": "Kelly J"
+    }
+  ],
+  "court_activities": [
+    {
+      "date": "2026-01-06",
+      "time": "10:00 am",
+      "location": "Ashland County Courthouse - Room 303",
+      "description": "Intake",
+      "type": "Court",
+      "court_official": "McKnight, Kelly J"
+    }
+  ],
+  "court_records": [
+    {
+      "date": "2025-12-01",
+      "event": "Citation filed",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null
+    },
+    {
+      "date": "2025-12-01",
+      "event": "Case initiated by electronic filing",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null
+    }
+  ]
+}

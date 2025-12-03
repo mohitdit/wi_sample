@@ -309,35 +309,51 @@ def parse_html_file_to_json(html_path: str, job_config: Optional[dict] = None) -
                 citations.append(citation_obj)
 
     # fallback: parse charges table in charges section (if citations empty)
-    if not citations:
-        charge_table = content_col.find("table", class_=re.compile(r"charge-summary|group-colored", re.I))
-        if charge_table:
-            tbody = charge_table.find("tbody")
-            if tbody:
-                for tr in tbody.find_all("tr"):
-                    tds = [ _clean_text(td) for td in tr.find_all(["td","th"]) ]
-                    # heuristic based on headers: Count no., Statute, Description, Severity, Disposition
-                    if len(tds) >= 4:
-                        # Check if description contains "Modifier:" or "Modified:"
-                        description = tds[2] if len(tds) > 2 else None
-                        is_modified = False
-                        if description:
-                            desc_lower = description.lower()
-                            if "modifier:" in desc_lower or "modified:" in desc_lower:
-                                is_modified = True
-
-                        citations.append({
-                            "case_number": None,
-                            "citation_number": None,
-                            "bond_amount": None,
-                            "statute": tds[1] if len(tds) > 1 else None,
-                            "description": description,
-                            "severity": tds[3] if len(tds) > 3 else None,
-                            "ordinance_or_statute": None,
-                            "plaintiff_agency": None,
-                            "mph_over": None,
-                            "isModified": "true" if is_modified else "false"
-                        })
+        if not citations:
+            charge_table = content_col.find("table", class_=re.compile(r"charge-summary|group-colored", re.I))
+            if charge_table:
+                # Find all tbody elements (each charge+modifier is in separate tbody)
+                tbodies = charge_table.find_all("tbody")
+                for tbody in tbodies:
+                    rows = tbody.find_all("tr")
+                    current_count = None
+                    
+                    for tr in rows:
+                        tds = [_clean_text(td) for td in tr.find_all(["td", "th"])]
+                        
+                        # Check if this is a modifier row
+                        is_modifier_row = (len(tds) > 0 and 
+                                          tr.get("class") and 
+                                          "modifier" in tr.get("class"))
+                        
+                        if is_modifier_row:
+                            # This is a modifier row
+                            if len(tds) >= 3:
+                                citations.append({
+                                    "count_number": current_count,
+                                    "statute": tds[1] if len(tds) > 1 else None,
+                                    "description": tds[2] if len(tds) > 2 else None,
+                                    "severity": tds[3] if len(tds) > 3 else None,
+                                    "disposition": tds[4] if len(tds) > 4 else None,
+                                    "isModified": "true"
+                                })
+                        else:
+                            # This is a main charge row
+                            if len(tds) >= 4:
+                                current_count = tds[0] if len(tds) > 0 else None
+                                citations.append({
+                                    "case_number": None,
+                                    "citation_number": None,
+                                    "bond_amount": None,
+                                    "count_number": current_count,
+                                    "statute": tds[1] if len(tds) > 1 else None,
+                                    "description": tds[2] if len(tds) > 2 else None,
+                                    "severity": tds[3] if len(tds) > 3 else None,
+                                    "disposition": tds[4] if len(tds) > 4 else None,
+                                    "ordinance_or_statute": None,
+                                    "plaintiff_agency": None,
+                                    "mph_over": None
+                                })
 
     # persons: defendant, plaintiff, prosecuting_agency, officer
     persons = []

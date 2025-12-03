@@ -126,7 +126,7 @@ class WisconsinScraper(BaseScraper):
         If auto-solve fails but user solves manually, cookies will still
         be saved once Case Summary is loaded and reused for later dockets.
         """
-        browser, context, page = await get_stealth_browser(False)
+        playwright, browser, context, page = await get_stealth_browser(False)
 
         case_url = self.build_case_url()
         docket = f"{self.config['docketYear']}{self.config['docketType']}{self.config['docketNumber']}"
@@ -149,6 +149,7 @@ class WisconsinScraper(BaseScraper):
         except Exception as e:
             log.error(f"Navigation failed: {e}")
             await browser.close()
+            await playwright.stop()
             return None
 
         # --- STEP 3: HANDLE CAPTCHA ---
@@ -184,6 +185,7 @@ class WisconsinScraper(BaseScraper):
                 except PlaywrightTimeoutError:
                     log.error("❌ Manual CAPTCHA not solved within allowed time.")
                     await browser.close()
+                    await playwright.stop()
                     return None
 
                 # Small delay after success, then continue to STEP 4
@@ -199,6 +201,7 @@ class WisconsinScraper(BaseScraper):
                 # result is None → fatal error; abort this docket
                 log.error("❌ CAPTCHA solving failed fatally; aborting this docket.")
                 await browser.close()
+                await playwright.stop()
                 return None
 
         # --- STEP 4: VERIFY SUCCESS & SAVE COOKIES ---
@@ -217,6 +220,7 @@ class WisconsinScraper(BaseScraper):
             html = await page.content()
             await context.close()
             await browser.close()
+            await playwright.stop()
             return {"docket": docket, "html": html, "status": "failed"}
 
         # --- STEP 5: RETURN HTML ---
@@ -224,5 +228,6 @@ class WisconsinScraper(BaseScraper):
 
         await context.close()
         await browser.close()
+        await playwright.stop()
 
         return {"docket": docket, "html": html, "status": "ok"}
