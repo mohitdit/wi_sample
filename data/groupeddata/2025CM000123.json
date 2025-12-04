@@ -1,0 +1,152 @@
+{
+  "state": "WI",
+  "county": "Buffalo",
+  "case_title": "State of Wisconsin vs. Jacob Edward Stoering",
+  "download_date": "2025-12-04T10:19:07.138214Z",
+  "docket_information": {
+    "filing_date": "2025-12-02",
+    "case_type": "Criminal",
+    "case_status": "Filed Only - Electronic filing",
+    "county_no": 6,
+    "plate": null,
+    "state_code": "WI",
+    "expiration": null,
+    "vin": null,
+    "violation_date": null,
+    "officer": null,
+    "issuing_agency": null
+  },
+  "charges": [
+    {
+      "case_number": "2025CM000123",
+      "citation_number": null,
+      "bond_amount": null,
+      "count_number": "1",
+      "statute": "947.01(1)",
+      "description": "Disorderly Conduct",
+      "severity": "Misd. B",
+      "disposition": "",
+      "ordinance_or_statute": null,
+      "plaintiff_agency": null,
+      "mph_over": null,
+      "isModified": "false",
+      "case_url": "https://wcca.wicourts.gov/caseDetail.html?caseNo=2025CM000123&countyNo=6&index=0&isAdvanced=true&mode=details"
+    }
+  ],
+  "persons": [
+    {
+      "person_type": "defendant",
+      "name_last": "Stoering",
+      "name_first": "Jacob",
+      "name_middle": "Edward",
+      "sex": "Male",
+      "race": "Caucasian",
+      "dob": "02-14-1992",
+      "address": {
+        "line1": "18465 350th St.",
+        "city": "Goodhue",
+        "state": "MN",
+        "zip": "55027"
+      }
+    },
+    {
+      "person_type": "prosecuting_agency",
+      "is_organization": true,
+      "name": "District Attorney"
+    },
+    {
+      "person_type": "prosecuting_agency_attorney",
+      "is_organization": false,
+      "name": "Bilski, Thomas James"
+    },
+    {
+      "person_type": "officer",
+      "name_last": "Clark",
+      "name_first": "Thomas W."
+    }
+  ],
+  "court_activities": [
+    {
+      "date": "2026-01-07",
+      "time": "10:00 am",
+      "location": "Buffalo County Courthouse",
+      "description": "Adjourned initial appearance",
+      "type": "Court",
+      "court_official": "Clark, Thomas W."
+    }
+  ],
+  "court_records": [
+    {
+      "date": "2025-12-02",
+      "event": "Notice of hearing",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "additional_text": "Adjourned initial appearance on January 7, 2026 at 10:00 am.",
+      "docket_number": "2025CM000123"
+    },
+    {
+      "date": "2025-12-02",
+      "event": "Signature bond set for Stoering, Jacob Edward",
+      "court_official": "Clark, Thomas W.",
+      "court_reporter": "Henthorn, Ashley",
+      "amount": 1500.0,
+      "additional_text": "No entrance into bars or taverns and no possession or consumption of alcohol.",
+      "docket_number": "2025CM000123"
+    },
+    {
+      "date": "2025-12-02",
+      "event": "Video conferencing",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "docket_number": "2025CM000123",
+      "additional_text": ""
+    },
+    {
+      "date": "2025-12-02",
+      "event": "Bail/bond hearing",
+      "court_official": "Clark, Thomas W.",
+      "court_reporter": "Henthorn, Ashley",
+      "amount": null,
+      "additional_text": "12:49 PM Defendant Jacob Edward Stoering appeared by video from the Buffalo County Jail. Attorney Thomas Bilski appeared by phone for State of Wisconsin. Attorney Karl Schmidt appeared by video for the defendant. clerk - sg. Charges, possible penalties and rights read. Attorney Bilski requests a $1,500 signature bond with conditions of No entrance into bars or taverns and no possession or consumption of alcohol. Attorney Schmidt no objections Court orders a $1,500 signature bond with conditions of No entrance into bars or taverns and no possession or consumption of alcohol. Off the record 12:53 PM Adjourned initial appearance scheduled for January 7, 2026 at 10:00 am.",
+      "docket_number": "2025CM000123"
+    },
+    {
+      "date": "2025-12-02",
+      "event": "Other papers",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "additional_text": "DNQ for PD",
+      "docket_number": "2025CM000123"
+    },
+    {
+      "date": "2025-12-02",
+      "event": "Electronic Filing Notice",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "docket_number": "2025CM000123",
+      "additional_text": ""
+    },
+    {
+      "date": "2025-12-02",
+      "event": "Case initiated by electronic filing",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "docket_number": "2025CM000123",
+      "additional_text": ""
+    },
+    {
+      "date": "2025-12-02",
+      "event": "Complaint filed",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null,
+      "docket_number": "2025CM000123",
+      "additional_text": ""
+    }
+  ]
+}
