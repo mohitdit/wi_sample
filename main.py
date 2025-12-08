@@ -2,267 +2,194 @@ import asyncio
 import os
 import json
 from datetime import datetime
-from scrapers.wisconsin_scraper import WisconsinScraper
+from scrapers.virginia_scraper import VirginiaScraper
 from utils.logger import log
-from scrapers.html_to_json import parse_html_file_to_json
-from case_grouper import run_grouping
-from api.api import ApiClient
 
 # ----------------------------------------
-# CONFIG
+# HARDCODED CONFIGURATIONS
 # ----------------------------------------
-JOB_CONFIG = {
-    "InitialURL": "https://wcca.wicourts.gov",
-    "stateName": "WISCONSIN",
-    "stateAbbreviation": "WI",
-    "urlFormat": "https://wcca.wicourts.gov/caseDetail.html?caseNo={caseNo}&countyNo={CountyID}&index=0&isAdvanced=true&mode=details",
-    "countyNo": 6,
-    "countyName": "Buffalo County",
-    "docketNumber": "001544",
-    "docketType": "TR",
+# These will be replaced with API calls later
+
+# Example 1: Civil Cases (GV prefix)
+CIVIL_CONFIG = {
+    "courtFips": "177",
+    "courtName": "Virginia Beach General District Court",
+    "searchFipsCode": 177,
+    "searchDivision": "V",
+    "docketNumber": "9120",  # Starting number (becomes 0007900)
     "docketYear": 2025,
-    "IsDownloadRequired": "true",
-    "docketUpdateDateTime": "2025-11-11T10:10:00Z"
+    "caseType": "civil"  # Will use GV prefix
 }
 
-HTML_OUTPUT_DIR = "data/htmldata"
-JSON_OUTPUT_DIR = "data/jsonconverteddata"
-GROUPED_OUTPUT_DIR = "data/groupeddata"
+# Example 2: Criminal Cases (GC and GT prefixes)
+CRIMINAL_CONFIG = {
+    "courtFips": "750",
+    "courtName": "Radford General District Court",
+    "searchFipsCode": 177,
+    "searchDivision": "T",
+    "docketNumber": "2070",  # Starting number
+    "docketYear": 2025,
+    "caseType": "criminal"  # Will use GC and GT prefixes
+}
 
-UNAVAILABLE_TITLE = "Your request could not be processed."
-UNAVAILABLE_SNIPPET_1 = "Your request could not be processed."
-UNAVAILABLE_SNIPPET_2 = "That case does not exist or you are not allowed to see it."
+# Choose which configuration to use
+ACTIVE_CONFIG = CRIMINAL_CONFIG  # Change to CRIMINAL_CONFIG for criminal cases
 
-# ----------------------------------------
-# HELPERS
-# ----------------------------------------
-def save_html_file(html_content: str, state_abbr: str, county_id: str, docket_type: str, docket_year: str, docket_number: str) -> str:
-    os.makedirs(HTML_OUTPUT_DIR, exist_ok=True)
-    file_name = f"{state_abbr}_{county_id}_{docket_year}_{docket_type}_{docket_number}.html"
-    file_path = os.path.join(HTML_OUTPUT_DIR, file_name)
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(html_content)
-    return file_path
-
-def save_json_file(obj: dict, state_abbr: str, county_id: str,docket_type: str, docket_year: str, docket_number: str) -> str:
-    os.makedirs(JSON_OUTPUT_DIR, exist_ok=True)
-    file_name = f"{state_abbr}_{county_id}_{docket_year}_{docket_type}_{docket_number}.json"
-    file_path = os.path.join(JSON_OUTPUT_DIR, file_name)
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(obj, f, indent=2)
-    return file_path
-
-def html_indicates_unavailable(html: str) -> bool:
-    if not html:
-        return True
-    lower = html.lower()
-    if UNAVAILABLE_TITLE.lower() in lower:
-        return True
-    return (UNAVAILABLE_SNIPPET_1.lower() in lower) and (UNAVAILABLE_SNIPPET_2.lower() in lower)
+# Output directories
+OUTPUT_DIR = "data"
+HTML_DIR = os.path.join(OUTPUT_DIR, "htmldata")
+JSON_DIR = os.path.join(OUTPUT_DIR, "jsondata")
 
 # ----------------------------------------
-# MAIN LOOP
+# HELPER FUNCTIONS
 # ----------------------------------------
-async def main():
 
-    api_client = ApiClient()
+def ensure_directories():
+    """Create necessary directories if they don't exist"""
+    os.makedirs(HTML_DIR, exist_ok=True)
+    os.makedirs(JSON_DIR, exist_ok=True)
+    log.info(f"Output directories ready: {HTML_DIR}, {JSON_DIR}")
 
-    try:
-        api_response = api_client.post("/WI_Downloader_Job_SQS_GET", {})
-        log.info(f"API call successful. Response: {api_response}")
-        print()  # one line space
-
-        # Extract docket details from API response
-        court_details = api_response.get("courtOfficeDetails")
-        if not court_details:
-            log.error("No docket details received from API.")
-            return
-
-        # Create JOB_CONFIG from API response
-        JOB_CONFIG = {
-            "InitialURL": court_details.get("InitialURL"),
-            "stateName": court_details.get("stateName"),
-            "stateAbbreviation": court_details.get("stateAbbreviation"),
-           "urlFormat": court_details.get("urlFormat")
-                    .replace('[','{')
-                    .replace(']','}')
-                    .replace('{DocketYear}{DocketType}{MaxDocketNumber}', '{caseNo}'),
-            "countyNo": court_details.get("countyNo"),
-            "countyName": court_details.get("countyName"),
-            "docketNumber": court_details.get("docketNumber"),
-            "docketType": court_details.get("docketType"),
-            "docketYear": court_details.get("docketYear"),
-            # Add static fields if needed
-            "IsDownloadRequired": "true",
-            "docketUpdateDateTime": "2025-11-11T10:10:00Z"
-        }
-
-    except Exception as e:
-        log.error(f"API call failed: {e}")
-        print("API call failed:", e)
-        return
-
-    start_number = int(JOB_CONFIG["docketNumber"]) + 1
-    max_attempts = 100  # Optional safety limit
-    last_successful_docket = None  # Track last successful docket
-    initial_docket_number = JOB_CONFIG["docketNumber"]  # ADD THIS LINE - Track what we started with
-
-    for i in range(max_attempts):
-        docket_number = str(start_number + i).zfill(len(JOB_CONFIG["docketNumber"]))
-        JOB_CONFIG["docketNumber"] = docket_number
-
-        case_no = f"{JOB_CONFIG['docketYear']}{JOB_CONFIG['docketType']}{docket_number}"
-        final_url = JOB_CONFIG["urlFormat"].format(
-            caseNo=case_no,
-            CountyID=JOB_CONFIG["countyNo"]
-        )
-
-        log.info(f"Scraping docket: {case_no} -> {final_url}")
-
-        scraper = WisconsinScraper(config=JOB_CONFIG)
-        results = await scraper.run_scraper()
-
-        # if results is None:
-        #     log.error(f"Case {case_no} unavailable.")
-        #     break
-
-        # if html_indicates_unavailable(results.get("html")):
-        #     log.warning(f"Case {case_no} indicates unavailable, stopping loop.")
-        #     break
-        
-               
-        # ----------------------------------------------------
-        # ❌ CASE 1 — SCRAPER FAILURE
-        # ----------------------------------------------------
-        if results is None:
-            log.error(f"❌ Scraper failed for case {case_no}. Adding next job and stopping.")
-
-            prev_docket = str(int(JOB_CONFIG["docketNumber"]) - 1).zfill(len(JOB_CONFIG["docketNumber"]))
-
-            next_job_payload = {
-                "courtOfficeDetails": {
-                    "InitialURL": JOB_CONFIG["InitialURL"],
-                    "stateName": JOB_CONFIG["stateName"],
-                    "stateAbbreviation": JOB_CONFIG["stateAbbreviation"],
-                    "urlFormat": court_details.get("urlFormat"),
-                    "countyNo": JOB_CONFIG["countyNo"],
-                    "countyName": JOB_CONFIG["countyName"],
-                    "docketNumber": prev_docket,
-                    "docketYear": JOB_CONFIG["docketYear"],
-                    "docketType": JOB_CONFIG["docketType"]
-                }
-            }
-
-            try:
-                add_response = api_client.post("/WI_Downloader_Job_To_SQS_ADD", next_job_payload)
-                log.info(f"Next job added (failure case): {add_response}")
-            except Exception as e:
-                log.error(f"Failed to add next job: {e}")
-
-            break
-
-        # ----------------------------------------------------
-        # ❗ CASE 2 — SUCCESS BUT NO RECORD FOUND
-        # ----------------------------------------------------
-        if html_indicates_unavailable(results.get("html")):
-            log.warning(f"⚠ Case {case_no} indicates 'no record found'. Stopping loop.")
-
-            # # Only call UPDATE API if we processed NEW successful dockets in this run
-            # # Check if last_successful_docket is greater than the initial docket we started with
-            # initial_docket_number = str(start_number - 1).zfill(len(JOB_CONFIG["docketNumber"]))
-
-            # if last_successful_docket and last_successful_docket > initial_docket_number:
-            #     update_payload = {
-            #         "stateName": JOB_CONFIG["stateName"],
-            #         "countyNo": JOB_CONFIG["countyNo"],
-            #         "countyName": JOB_CONFIG["countyName"],
-            #         "docketNumber": last_successful_docket,
-            #         "docketYear": JOB_CONFIG["docketYear"],
-            #         "docketType": JOB_CONFIG["docketType"]
-            #     }
-
-            #     try:
-            #         update_response = api_client.post("/WI_County_DocketNumber_UPDATE", update_payload)
-            #         log.info(f"✅ UPDATE API called with docket {last_successful_docket}: {update_response}")
-            #     except Exception as e:
-            #         log.error(f"❌ UPDATE API failed: {e}")
-            # else:
-            #     log.info("ℹ️ No new successful dockets processed in this run. Skipping UPDATE API call.")
-
-            break
-
-        # last_successful_docket = docket_number
-
-        # Save HTML and JSON
-        html_path = save_html_file(
-            results.get("html", ""), 
-            JOB_CONFIG["stateAbbreviation"],
-            str(JOB_CONFIG["countyNo"]),
-            str(JOB_CONFIG["docketYear"]),
-            str(JOB_CONFIG["docketType"]),
-            docket_number
-        )
-        
-        log.info(f"Saved HTML: {html_path}")
-        
-        # Parse saved html and produce structured json
-        json_obj = parse_html_file_to_json(html_path, JOB_CONFIG)
-        json_path = save_json_file(
-            json_obj, 
-            JOB_CONFIG["stateAbbreviation"],
-            str(JOB_CONFIG["countyNo"]),
-            str(JOB_CONFIG["docketYear"]),
-            str(JOB_CONFIG["docketType"]),
-            docket_number
-        )
-        log.info(f"Saved JSON: {json_path}")
-
-    # ----------------------------------------
-    # GROUP ALL CASES AFTER SCRAPING IS DONE
-    # ----------------------------------------
-    log.info("\n" + "="*60)
-    log.info("All scraping complete! Starting case grouping...")
-    log.info("="*60)
-
-    # # Track existing files BEFORE grouping
-    # existing_grouped_files = set()
-    # if os.path.exists(GROUPED_OUTPUT_DIR):
-    #     existing_grouped_files = set(os.listdir(GROUPED_OUTPUT_DIR))
-
-    # # Run grouping
-    run_grouping(data_dir=JSON_OUTPUT_DIR, output_dir=GROUPED_OUTPUT_DIR)
-
-    # # Find NEW files AFTER grouping
-    # current_grouped_files = set()
-    # if os.path.exists(GROUPED_OUTPUT_DIR):
-    #     current_grouped_files = set(os.listdir(GROUPED_OUTPUT_DIR))
-    # new_files = current_grouped_files - existing_grouped_files
-
-    # # Send each NEW file to INSERT API (only if we scraped new data this run)
-    # initial_docket_number = str(start_number - 1).zfill(len(court_details.get("docketNumber")))
-    # has_new_data = last_successful_docket and last_successful_docket > initial_docket_number
-
-    # if new_files and has_new_data:
-    #     log.info(f"\n📤 Sending {len(new_files)} new grouped files to INSERT API...")
-    #     for filename in new_files:
-    #         filepath = os.path.join(GROUPED_OUTPUT_DIR, filename)
-    #         with open(filepath, 'r', encoding='utf-8') as f:
-    #             grouped_data = json.load(f)
-
-    #         try:
-    #             api_payload = [grouped_data]
-    #             insert_response = api_client.post("/WI_DataDockets_INSERT", api_payload)
-    #             log.info(f"✅ INSERT API called for {filename}: {insert_response}")
-    #         except Exception as e:
-    #             log.error(f"❌ INSERT API failed for {filename}: {e}")
-    # elif new_files and not has_new_data:
-    #     log.info("ℹ️ New grouped files exist but no new data was scraped in this run. Skipping INSERT API.")
-    # else:
-    #     log.info("ℹ️ No new grouped files created")
+def save_session_summary(results: list, config: dict):
+    """Save a JSON summary of the scraping session"""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    summary = {
+        "session_timestamp": timestamp,
+        "court_name": config["courtName"],
+        "court_fips": config["courtFips"],
+        "case_type": config["caseType"],
+        "starting_docket": config["docketNumber"],
+        "docket_year": config["docketYear"],
+        "total_cases_found": len([r for r in results if r['status'] == 'success']),
+        "total_attempts": len(results),
+        "cases": [
+            {
+                "case_number": r["case_number"],
+                "status": r["status"]
+            } for r in results
+        ]
+    }
     
-    log.info("\n" + "="*60)
-    log.info("✅ ALL TASKS COMPLETE!")
+    filename = f"session_summary_{config['caseType']}_{timestamp}.json"
+    filepath = os.path.join(JSON_DIR, filename)
+    
+    with open(filepath, 'w', encoding='utf-8') as f:
+        json.dump(summary, f, indent=2)
+    
+    log.info(f"Session summary saved: {filepath}")
+    return filepath
+
+def print_summary(results: list, config: dict):
+    """Print a formatted summary of the scraping session"""
+    successful = [r for r in results if r['status'] == 'success']
+    no_results = [r for r in results if r['status'] == 'no_results']
+    errors = [r for r in results if r['status'] in ['error', 'timeout']]
+    
+    print("\n" + "="*60)
+    print("SCRAPING SESSION SUMMARY")
+    print("="*60)
+    print(f"Court: {config['courtName']}")
+    print(f"Case Type: {config['caseType'].upper()}")
+    print(f"Starting Docket: {config['docketNumber']}")
+    print(f"Year: {config['docketYear']}")
+    print("-"*60)
+    print(f"✅ Successful Cases: {len(successful)}")
+    print(f"❌ No Results Found: {len(no_results)}")
+    print(f"⚠️  Errors/Timeouts: {len(errors)}")
+    print(f"📊 Total Attempts: {len(results)}")
+    print("-"*60)
+    
+    if successful:
+        print("\nSuccessful Cases:")
+        for r in successful[:10]:  # Show first 10
+            print(f"  • {r['case_number']}")
+        if len(successful) > 10:
+            print(f"  ... and {len(successful) - 10} more")
+    
+    print("="*60 + "\n")
+
+# ----------------------------------------
+# MAIN EXECUTION
+# ----------------------------------------
+
+async def scrape_single_config(config: dict):
+    """
+    Scrape cases for a single configuration
+    """
     log.info("="*60)
+    log.info("STARTING VIRGINIA COURT SCRAPER")
+    log.info("="*60)
+    log.info(f"Court: {config['courtName']}")
+    log.info(f"FIPS Code: {config['courtFips']}")
+    log.info(f"Case Type: {config['caseType'].upper()}")
+    log.info(f"Starting Docket Number: {config['docketNumber']}")
+    log.info(f"Year: {config['docketYear']}")
+    log.info("="*60)
+    
+    # Initialize scraper
+    scraper = VirginiaScraper(config=config)
+    
+    # Run the scraper
+    results = await scraper.run_scraper()
+    
+    # Save session summary
+    save_session_summary(results, config)
+    
+    # Print summary
+    print_summary(results, config)
+    
+    return results
+
+async def scrape_multiple_configs(configs: list):
+    """
+    Scrape cases for multiple configurations sequentially
+    """
+    all_results = []
+    
+    for idx, config in enumerate(configs, 1):
+        log.info(f"\n{'#'*60}")
+        log.info(f"PROCESSING CONFIGURATION {idx}/{len(configs)}")
+        log.info(f"{'#'*60}\n")
+        
+        results = await scrape_single_config(config)
+        all_results.extend(results)
+        
+        # Delay between different configurations
+        if idx < len(configs):
+            log.info("Waiting 10 seconds before next configuration...")
+            await asyncio.sleep(10)
+    
+    return all_results
+
+async def main():
+    """
+    Main entry point for the scraper
+    """
+    # Ensure output directories exist
+    ensure_directories()
+    
+    # Single configuration mode
+    if isinstance(ACTIVE_CONFIG, dict):
+        await scrape_single_config(ACTIVE_CONFIG)
+    
+    # Multiple configuration mode (uncomment to use)
+    # configs = [CIVIL_CONFIG, CRIMINAL_CONFIG]
+    # await scrape_multiple_configs(configs)
+
+# ----------------------------------------
+# ENTRY POINT
+# ----------------------------------------
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        log.warning("\n\n⚠️  Scraping interrupted by user (Ctrl+C)")
+        print("\nGracefully shutting down...")
+    except Exception as e:
+        log.error(f"\n\n🚨 Fatal error occurred: {e}")
+        raise
+    finally:
+        log.info("\n" + "="*60)
+        log.info("SCRAPER TERMINATED")
+        log.info("="*60)

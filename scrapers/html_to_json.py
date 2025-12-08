@@ -279,7 +279,7 @@ def parse_html_file_to_json(html_path: str, job_config: Optional[dict] = None) -
                     "severity": fields.get("severity"),
                     "ordinance_or_statute": fields.get("ordinance or statute"),
                     "plaintiff_agency": fields.get("plaintff agency") or fields.get("plaintiff agency"),
-                    "mph_over": fields.get("mph over"),
+                    "mph_over": fields.get("mph over") or fields.get("MPH over") or fields.get("MPH over"),
                     "isModified": "true" if is_modified else "false"
                 }
                 

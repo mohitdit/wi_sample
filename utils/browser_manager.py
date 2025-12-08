@@ -10,7 +10,7 @@ async def get_stealth_browser(headless: bool = True):
         headless (bool): Whether to run the browser in headless mode.
     
     Returns:
-        tuple: (playwright, browser, context, page)
+        tuple: (browser, context, page)
     """
     try:
         playwright = await async_playwright().start()
@@ -35,7 +35,7 @@ async def get_stealth_browser(headless: bool = True):
     stealth = Stealth()
     await stealth.apply_stealth_async(page)
 
-    return playwright, browser, context, page
+    return browser, context, page
 
 async def wait_for_user_confirmation(prompt: str = "Press Enter to continue..."):
     """
