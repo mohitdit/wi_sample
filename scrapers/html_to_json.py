@@ -405,27 +405,49 @@ def parse_html_file_to_json(html_path: str, job_config: Optional[dict] = None) -
             persons[0]["address"]["zip"] = parsed_addr["zip"]
 
     # plaintiff / prosecuting agency - from charges section top fields
-    charges_section = content_col.find("section", id="charges")
-    if charges_section:
-        charge_map = _extract_dl_pairs_from_dl_section(charges_section)
-        # responsible official/prosecuting agency/prosecuting agency attorney
-        prosecutor = charge_map.get("prosecuting agency")
-        prosecutor_attny = charge_map.get("prosecuting agency attorney")
-        responsible_official = charge_map.get("responsible official") or charge_map.get("responsible official")
-        if prosecutor:
-            persons.append({
-                "person_type": "prosecuting_agency",
-                "is_organization": True,
-                "name": prosecutor
-            })
-        if prosecutor_attny:
-            persons.append({
-                "person_type": "prosecuting_agency_attorney",
-                "is_organization": False,
-                "name": prosecutor_attny
-            })
+        charges_section = content_col.find("section", id="charges")
+        prosecutor = None
+        prosecutor_attny = None
+        responsible_official = None
+        plaintiff_agency = None
+
+        if charges_section:
+            charge_map = _extract_dl_pairs_from_dl_section(charges_section)
+            # responsible official/prosecuting agency/prosecuting agency attorney
+            prosecutor = charge_map.get("prosecuting agency")
+            prosecutor_attny = charge_map.get("prosecuting agency attorney")
+            responsible_official = charge_map.get("responsible official") or charge_map.get("responsible official")
+
+        # Get plaintiff_agency from first citation if available
+        if citations:
+            for citation in citations:
+                if citation.get("plaintiff_agency"):
+                    plaintiff_agency = citation["plaintiff_agency"]
+                    break
+
+        # Always add prosecuting_agency (even if empty)
+        persons.append({
+            "person_type": "prosecuting_agency",
+            "is_organization": True,
+            "name": prosecutor or ""
+        })
+
+        # Always add prosecuting_agency_attorney (even if empty)
+        persons.append({
+            "person_type": "prosecuting_agency_attorney",
+            "is_organization": False,
+            "name": prosecutor_attny or ""
+        })
+
+        # Always add plaintiff_agency (even if empty)
+        persons.append({
+            "person_type": "plaintiff_agency",
+            "is_organization": True,
+            "name": plaintiff_agency or ""
+        })
+
+        # Add officer/responsible official only if present
         if responsible_official:
-            # include as court_official / officer maybe
             persons.append({
                 "person_type": "officer",
                 "name_last": responsible_official.split(",")[0] if "," in responsible_official else responsible_official,
