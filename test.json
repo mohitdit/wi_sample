@@ -1,0 +1,126 @@
+{
+    "ck_json_schema": {
+      "schema_name": "nj_criminal_indictable_docket",
+      "label": "NJ Criminal Indictable Docket",
+      "version": "1",
+      "dataset_id": "NJ-103",
+      "fields": [
+        {
+          "field_name": "added_date",
+          "data_type": "date",
+          "value_separator": ""
+        },
+        {
+          "field_name": "pg_case_number",
+          "data_type": "string"
+        },
+        {
+          "field_name": "pd_case_number",
+          "data_type": "string"
+        },
+        {
+          "field_name": "proceeding_type",
+          "data_type": "string"
+        },
+        {
+          "field_name": "filed_date",
+          "data_type": "date"
+        },
+        {
+          "field_name": "county",
+          "data_type": "string"
+        },
+        {
+          "field_name": "judge_name",
+          "data_type": "string"
+        },
+        {
+          "field_name": "prosecutor",
+          "data_type": "string"
+        },
+        {
+          "field_name": "defendants",
+          "data_type": "list",
+          "fields": [
+            {
+              "field_name": "defendant_number",
+              "data_type": "string"
+            },
+            {
+              "field_name": "first_name",
+              "data_type": "string"
+            },
+            {
+              "field_name": "middle_name",
+              "data_type": "string"
+            },
+            {
+              "field_name": "last_name",
+              "data_type": "string"
+            },
+            {
+              "field_name": "bail_status",
+              "data_type": "string"
+            },
+            {
+              "field_name": "address_details",
+              "data_type": "group",
+              "value_separator": "",
+              "fields": [
+                { "field_name": "address_line1", "data_type": "string" },
+                { "field_name": "address_city", "data_type": "string" },
+                { "field_name": "address_state", "data_type": "string" },
+                { "field_name": "address_zip", "data_type": "string" }
+              ]
+            },
+            {
+              "field_name": "postponements",
+              "data_type": "string"
+            },
+            {
+              "field_name": "language",
+              "data_type": "string"
+            },
+            {
+              "field_name": "finger_printed",
+              "data_type": "string"
+            },
+            {
+              "field_name": "jail_information",
+              "data_type": "group",
+              "fields": [
+                { "field_name": "inmate_name", "data_type": "string" },
+                { "field_name": "commitment_number", "data_type": "string" },
+                { "field_name": "commitment_date", "data_type": "date" },
+                { "field_name": "jail_location", "data_type": "string" },
+                { "field_name": "source_match_status", "data_type": "string" }
+              ]
+            },
+            {
+              "field_name": "acs_cdr_number",
+              "data_type": "group",
+              "value_separator": "-",
+              "fields": [
+                { "field_name": "type_code", "data_type": "string" },
+                { "field_name": "year", "data_type": "string" },
+                { "field_name": "docket_number", "data_type": "string" },
+                { "field_name": "court_code", "data_type": "string" }
+              ]
+            },
+            {
+              "field_name": "charges",
+              "data_type": "list",
+              "fields": [
+                { "field_name": "charge_type", "data_type": "string" },
+                { "field_name": "statute", "data_type": "string" },
+                { "field_name": "description", "data_type": "string" },
+                { "field_name": "degree", "data_type": "string" },
+                { "field_name": "cdr_number", "data_type": "string" },
+                { "field_name": "offense_date", "data_type": "date" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }

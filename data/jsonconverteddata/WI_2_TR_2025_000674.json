@@ -1,0 +1,95 @@
+{
+  "state": "WI",
+  "county": "Ashland",
+  "caption": "State of Wisconsin vs. Randall S Lawler",
+  "docket_information": {
+    "filing_date": "2025-12-08",
+    "case_type": "Traffic Forfeiture",
+    "case_status": "Filed Only - Electronic filing",
+    "county_no": 2,
+    "plate": "329HJG",
+    "state_code": "WI",
+    "expiration": "2026",
+    "vin": "1LNHM81W54Y616126",
+    "violation_date": "2025-12-07",
+    "officer": "",
+    "issuing_agency": "State Patrol"
+  },
+  "charges": [
+    {
+      "case_number": "2025TR000674",
+      "citation_number": "BN5047000",
+      "bond_amount": 175.3,
+      "statute": "341.04(1)",
+      "description": "Non-Registration of Vehicle - Auto <10,000 lbs",
+      "severity": "Forf. U",
+      "ordinance_or_statute": "Statute",
+      "plaintiff_agency": "State of Wisconsin",
+      "mph_over": null,
+      "isModified": "false"
+    }
+  ],
+  "persons": [
+    {
+      "person_type": "defendant",
+      "name_last": "Lawler",
+      "name_first": "Randall",
+      "name_middle": "S",
+      "sex": "Male",
+      "race": "Caucasian",
+      "dob": "03-1960",
+      "address": {
+        "line1": "1001 Ellis Ave",
+        "city": "Ashland",
+        "state": "WI",
+        "zip": "54806"
+      }
+    },
+    {
+      "person_type": "prosecuting_agency",
+      "is_organization": true,
+      "name": "District Attorney"
+    },
+    {
+      "person_type": "prosecuting_agency_attorney",
+      "is_organization": false,
+      "name": ""
+    },
+    {
+      "person_type": "plaintiff_agency",
+      "is_organization": true,
+      "name": "State of Wisconsin"
+    },
+    {
+      "person_type": "officer",
+      "name_last": "McKnight",
+      "name_first": "Kelly J"
+    }
+  ],
+  "court_activities": [
+    {
+      "date": "2026-02-17",
+      "time": "10:00 am",
+      "location": "Ashland County Courthouse - Room 303",
+      "description": "Intake",
+      "type": "Court",
+      "court_official": "McKnight, Kelly J"
+    }
+  ],
+  "court_records": [
+    {
+      "date": "2025-12-08",
+      "event": "Citation filed",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null
+    },
+    {
+      "date": "2025-12-08",
+      "event": "Case initiated by electronic filing",
+      "court_official": "",
+      "court_reporter": "",
+      "amount": null
+    }
+  ]
+}
