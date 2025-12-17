@@ -28,6 +28,8 @@ JOB_CONFIG = {
 HTML_OUTPUT_DIR = "data/htmldata"
 JSON_OUTPUT_DIR = "data/jsonconverteddata"
 GROUPED_OUTPUT_DIR = "data/groupeddata"
+MAPPED_OUTPUT_DIR = "data/mappeddata"
+
 
 UNAVAILABLE_TITLE = "Your request could not be processed."
 UNAVAILABLE_SNIPPET_1 = "Your request could not be processed."
@@ -224,6 +226,21 @@ async def main():
 
     # # Run grouping
     run_grouping(data_dir=JSON_OUTPUT_DIR, output_dir=GROUPED_OUTPUT_DIR)
+
+    
+    # ----------------------------------------
+    # MAP GROUPED DATA TO SCHEMA FORMAT
+    # ----------------------------------------
+    log.info("\n" + "="*60)
+    log.info("Grouping complete! Starting schema mapping...")
+    log.info("="*60)
+    
+    from schema_mapper import process_all_grouped_files
+    process_all_grouped_files(
+        grouped_dir=GROUPED_OUTPUT_DIR,
+        mapped_dir="data/mappeddata",
+        schema_file="test.json"
+    )
 
     # # Find NEW files AFTER grouping
     # current_grouped_files = set()
