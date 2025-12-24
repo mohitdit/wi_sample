@@ -12,6 +12,7 @@
   },
   "settings": {
     "timeout_seconds": 60 ,
-    "auto_kill_switch": true
+    "auto_kill_switch": true,
+    "auto_reconnect_minutes": 120
   }
 }

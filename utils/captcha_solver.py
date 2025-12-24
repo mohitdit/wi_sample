@@ -3,7 +3,7 @@ import asyncio
 import tempfile
 import os
 import json
-import deathbycaptcha
+#import deathbycaptcha
 
 from utils.logger import log
 

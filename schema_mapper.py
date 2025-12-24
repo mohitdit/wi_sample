@@ -5,7 +5,7 @@ from typing import Dict, Any, List
 def map_grouped_to_schema(grouped_data: Dict[str, Any], schema: Dict[str, Any]) -> Dict[str, Any]:
     """
     Maps grouped Wisconsin court data to the target schema format.
-    Only maps charges - other fields remain empty as per requirements.
+    Maps all available fields from grouped data to schema structure.
     """
     
     # Initialize the mapped structure based on schema
@@ -26,53 +26,88 @@ def map_grouped_to_schema(grouped_data: Dict[str, Any], schema: Dict[str, Any]) 
         else:
             mapped[field_name] = ""
     
-    # Map charges from grouped data
-    charges_from_grouped = grouped_data.get("charges", [])
+    # Map top-level fields
+    from datetime import datetime
+    mapped["added_date"] = grouped_data.get("download_date", "")
     
+    # Extract case number from first charge if available
+    charges_from_grouped = grouped_data.get("charges", [])
+    if charges_from_grouped and len(charges_from_grouped) > 0:
+        mapped["pg_case_number"] = charges_from_grouped[0].get("case_number", "")
+    
+    mapped["pd_case_number"] = ""  # Not available in Wisconsin data
+    mapped["proceeding_type"] = grouped_data.get("docket_information", {}).get("case_type", "")
+    mapped["filed_date"] = grouped_data.get("docket_information", {}).get("filing_date", "")
+    mapped["county"] = grouped_data.get("county", "")
+    
+    # Extract judge name from court activities
+    judge_name = ""
+    for activity in grouped_data.get("court_activities", []):
+        official = activity.get("court_official", "")
+        if official and activity.get("type") == "Court":
+            judge_name = official
+            break
+    mapped["judge_name"] = judge_name
+    
+    # Extract prosecutor from persons
+    prosecutor = ""
+    for person in grouped_data.get("persons", []):
+        if person.get("person_type") == "prosecuting_agency":
+            prosecutor = person.get("name", "")
+            break
+    mapped["prosecutor"] = prosecutor
+    
+    # Map defendant information
     if charges_from_grouped and "defendants" in mapped:
-        # Create one defendant entry with all charges
-        defendant = {
-            "defendant_number": "",
-            "first_name": "",
-            "middle_name": "",
-            "last_name": "",
-            "bail_status": "",
-            "address_details": {
-                "address_line1": "",
-                "address_city": "",
-                "address_state": "",
-                "address_zip": ""
-            },
-            "postponements": "",
-            "language": "",
-            "finger_printed": "",
-            "jail_information": {
-                "inmate_name": "",
-                "commitment_number": "",
-                "commitment_date": "",
-                "jail_location": "",
-                "source_match_status": ""
-            },
-            "acs_cdr_number": "",
-            "charges": []
-        }
+        # Find defendant in persons list
+        defendant_info = None
+        for person in grouped_data.get("persons", []):
+            if person.get("person_type") == "defendant":
+                defendant_info = person
+                break
         
-        # Map each charge
-        for charge in charges_from_grouped:
-            mapped_charge = {
-                "charge_type": "",
-                "statute": charge.get("statute", ""),
-                "description": charge.get("description", ""),
-                "degree": charge.get("severity", ""),  # Map severity to degree
-                "cdr_number": charge.get("citation_number", ""),
-                "offense_date": charge.get("case_number", "")  # Placeholder
+        if defendant_info:
+            defendant = {
+                "defendant_number": "",  # Not available in Wisconsin data
+                "first_name": defendant_info.get("name_first", ""),
+                "middle_name": defendant_info.get("name_middle", ""),
+                "last_name": defendant_info.get("name_last", ""),
+                "bail_status": "",  # Not available in Wisconsin data
+                "address_details": {
+                    "address_line1": defendant_info.get("address", {}).get("line1", ""),
+                    "address_city": defendant_info.get("address", {}).get("city", ""),
+                    "address_state": defendant_info.get("address", {}).get("state", ""),
+                    "address_zip": defendant_info.get("address", {}).get("zip", "")
+                },
+                "postponements": "",  # Not available in Wisconsin data
+                "language": "",  # Not available in Wisconsin data
+                "finger_printed": "",  # Not available in Wisconsin data
+                "jail_information": {
+                    "inmate_name": "",
+                    "commitment_number": "",
+                    "commitment_date": "",
+                    "jail_location": "",
+                    "source_match_status": ""
+                },
+                "acs_cdr_number": "",  # Will be constructed if data available
+                "charges": []
             }
-            defendant["charges"].append(mapped_charge)
-        
-        mapped["defendants"] = [defendant]
+            
+            # Map each charge
+            for charge in charges_from_grouped:
+                mapped_charge = {
+                    "charge_type": charge.get("ordinance_or_statute", ""),
+                    "statute": charge.get("statute", ""),
+                    "description": charge.get("description", ""),
+                    "degree": charge.get("severity", ""),
+                    "cdr_number": charge.get("citation_number", ""),
+                    "offense_date": grouped_data.get("docket_information", {}).get("violation_date", "")
+                }
+                defendant["charges"].append(mapped_charge)
+            
+            mapped["defendants"] = [defendant]
     
     return mapped
-
 
 def initialize_group_structure(field: Dict[str, Any]) -> Dict[str, Any]:
     """Initialize a group structure with empty values."""

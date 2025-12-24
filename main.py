@@ -6,8 +6,56 @@ from scrapers.wisconsin_scraper import WisconsinScraper
 from utils.logger import log
 from scrapers.html_to_json import parse_html_file_to_json
 from case_grouper import run_grouping
+from vpn.vpnbot import SurfsharkManager
+import time
 from api.api import ApiClient
+# ----------------------------------------
+# VPN MANAGEMENT GLOBALS
+# ----------------------------------------
+vpn_manager = None
+last_vpn_reconnect_time = None
 
+def initialize_vpn():
+    """Initialize VPN manager and connect"""
+    global vpn_manager, last_vpn_reconnect_time
+    vpn_manager = SurfsharkManager()
+    log.info("= Initializing VPN connection...")
+    vpn_manager.reconnect()
+    last_vpn_reconnect_time = time.time()
+    log.info(f" VPN connected at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+def should_reconnect_vpn():
+    """Check if VPN should reconnect based on time interval"""
+    global last_vpn_reconnect_time
+    
+    if last_vpn_reconnect_time is None:
+        return True
+    
+    interval_minutes = vpn_manager.get_reconnect_interval_minutes()
+    elapsed_seconds = time.time() - last_vpn_reconnect_time
+    elapsed_minutes = elapsed_seconds / 60
+    
+    if elapsed_minutes >= interval_minutes:
+        log.info(f"� VPN reconnection needed: {elapsed_minutes:.1f} minutes elapsed (limit: {interval_minutes} minutes)")
+        return True
+    
+    return False
+
+def reconnect_vpn_if_needed():
+    """Reconnect VPN and update timestamp"""
+    global last_vpn_reconnect_time
+    
+    log.info("\n" + "="*60)
+    log.info("= VPN RECONNECTION IN PROGRESS")
+    log.info("="*60)
+    log.info("�  All operations paused during VPN reconnection...")
+    
+    vpn_manager.reconnect()
+    last_vpn_reconnect_time = time.time()
+    
+    log.info(f" VPN reconnected at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    log.info("�  Operations resumed")
+    log.info("="*60 + "\n")
 # ----------------------------------------
 # CONFIG
 # ----------------------------------------
@@ -28,8 +76,6 @@ JOB_CONFIG = {
 HTML_OUTPUT_DIR = "data/htmldata"
 JSON_OUTPUT_DIR = "data/jsonconverteddata"
 GROUPED_OUTPUT_DIR = "data/groupeddata"
-MAPPED_OUTPUT_DIR = "data/mappeddata"
-
 
 UNAVAILABLE_TITLE = "Your request could not be processed."
 UNAVAILABLE_SNIPPET_1 = "Your request could not be processed."
@@ -66,213 +112,224 @@ def html_indicates_unavailable(html: str) -> bool:
 # MAIN LOOP
 # ----------------------------------------
 async def main():
+    # Initialize VPN once at startup
+    initialize_vpn()
+    while True:
+        api_client = ApiClient()
 
-    api_client = ApiClient()
+        try:
+            api_response = api_client.post("/WI_Downloader_Job_SQS_GET", {})
+            log.info(f"API call successful. Response: {api_response}")
+            print()  # one line space
 
-    try:
-        api_response = api_client.post("/WI_Downloader_Job_SQS_GET", {})
-        log.info(f"API call successful. Response: {api_response}")
-        print()  # one line space
+            # Extract docket details from API response
+            court_details = api_response.get("courtOfficeDetails")
+            if not court_details:
+                log.error("No docket details received from API.")
+                return
 
-        # Extract docket details from API response
-        court_details = api_response.get("courtOfficeDetails")
-        if not court_details:
-            log.error("No docket details received from API.")
-            return
-
-        # Create JOB_CONFIG from API response
-        JOB_CONFIG = {
-            "InitialURL": court_details.get("InitialURL"),
-            "stateName": court_details.get("stateName"),
-            "stateAbbreviation": court_details.get("stateAbbreviation"),
-           "urlFormat": court_details.get("urlFormat")
-                    .replace('[','{')
-                    .replace(']','}')
-                    .replace('{DocketYear}{DocketType}{MaxDocketNumber}', '{caseNo}'),
-            "countyNo": court_details.get("countyNo"),
-            "countyName": court_details.get("countyName"),
-            "docketNumber": court_details.get("docketNumber"),
-            "docketType": court_details.get("docketType"),
-            "docketYear": court_details.get("docketYear"),
-            # Add static fields if needed
-            "IsDownloadRequired": "true",
-            "docketUpdateDateTime": "2025-11-11T10:10:00Z"
-        }
-
-    except Exception as e:
-        log.error(f"API call failed: {e}")
-        print("API call failed:", e)
-        return
-
-    start_number = int(JOB_CONFIG["docketNumber"]) + 1
-    max_attempts = 100  # Optional safety limit
-    last_successful_docket = None  # Track last successful docket
-    initial_docket_number = JOB_CONFIG["docketNumber"]  # ADD THIS LINE - Track what we started with
-
-    for i in range(max_attempts):
-        docket_number = str(start_number + i).zfill(len(JOB_CONFIG["docketNumber"]))
-        JOB_CONFIG["docketNumber"] = docket_number
-
-        case_no = f"{JOB_CONFIG['docketYear']}{JOB_CONFIG['docketType']}{docket_number}"
-        final_url = JOB_CONFIG["urlFormat"].format(
-            caseNo=case_no,
-            CountyID=JOB_CONFIG["countyNo"]
-        )
-
-        log.info(f"Scraping docket: {case_no} -> {final_url}")
-
-        scraper = WisconsinScraper(config=JOB_CONFIG)
-        results = await scraper.run_scraper()
-
-        
-               
-        # ----------------------------------------------------
-        # ❌ CASE 1 — SCRAPER FAILURE
-        # ----------------------------------------------------
-        if results is None:
-            log.error(f"❌ Scraper failed for case {case_no}. Adding next job and stopping.")
-
-            prev_docket = str(int(JOB_CONFIG["docketNumber"]) - 1).zfill(len(JOB_CONFIG["docketNumber"]))
-
-            next_job_payload = {
-                "courtOfficeDetails": {
-                    "InitialURL": JOB_CONFIG["InitialURL"],
-                    "stateName": JOB_CONFIG["stateName"],
-                    "stateAbbreviation": JOB_CONFIG["stateAbbreviation"],
-                    "urlFormat": court_details.get("urlFormat"),
-                    "countyNo": JOB_CONFIG["countyNo"],
-                    "countyName": JOB_CONFIG["countyName"],
-                    "docketNumber": prev_docket,
-                    "docketYear": JOB_CONFIG["docketYear"],
-                    "docketType": JOB_CONFIG["docketType"]
-                }
+            # Create JOB_CONFIG from API response
+            JOB_CONFIG = {
+                "InitialURL": court_details.get("InitialURL"),
+                "stateName": court_details.get("stateName"),
+                "stateAbbreviation": court_details.get("stateAbbreviation"),
+            "urlFormat": court_details.get("urlFormat")
+                        .replace('[','{')
+                        .replace(']','}')
+                        .replace('{DocketYear}{DocketType}{MaxDocketNumber}', '{caseNo}'),
+                "countyNo": court_details.get("countyNo"),
+                "countyName": court_details.get("countyName"),
+                "docketNumber": court_details.get("docketNumber"),
+                "docketType": court_details.get("docketType"),
+                "docketYear": court_details.get("docketYear"),
+                # Add static fields if needed
+                "IsDownloadRequired": "true",
+                "docketUpdateDateTime": "2025-11-11T10:10:00Z"
             }
 
-            try:
-                add_response = api_client.post("/WI_Downloader_Job_To_SQS_ADD", next_job_payload)
-                log.info(f"Next job added (failure case): {add_response}")
-            except Exception as e:
-                log.error(f"Failed to add next job: {e}")
+        except Exception as e:
+            log.error(f"API call failed: {e}")
+            print("API call failed:", e)
+            return
 
-            break
+        start_number = int(JOB_CONFIG["docketNumber"]) + 1
+        max_attempts = 100  # Optional safety limit
+        last_successful_docket = None  # Track last successful docket
+        initial_docket_number = JOB_CONFIG["docketNumber"]  # ADD THIS LINE - Track what we started with
 
-        # ----------------------------------------------------
-        # ❗ CASE 2 — SUCCESS BUT NO RECORD FOUND
-        # ----------------------------------------------------
-        if html_indicates_unavailable(results.get("html")):
-            log.warning(f"⚠ Case {case_no} indicates 'no record found'. Stopping loop.")
+        for i in range(max_attempts):
+            docket_number = str(start_number + i).zfill(len(JOB_CONFIG["docketNumber"]))
+            JOB_CONFIG["docketNumber"] = docket_number
 
-            # # Only call UPDATE API if we processed NEW successful dockets in this run
-            # # Check if last_successful_docket is greater than the initial docket we started with
-            # initial_docket_number = str(start_number - 1).zfill(len(JOB_CONFIG["docketNumber"]))
+            case_no = f"{JOB_CONFIG['docketYear']}{JOB_CONFIG['docketType']}{docket_number}"
+            final_url = JOB_CONFIG["urlFormat"].format(
+                caseNo=case_no,
+                CountyID=JOB_CONFIG["countyNo"]
+            )
 
-            # if last_successful_docket and last_successful_docket > initial_docket_number:
-            #     update_payload = {
-            #         "stateName": JOB_CONFIG["stateName"],
-            #         "countyNo": JOB_CONFIG["countyNo"],
-            #         "countyName": JOB_CONFIG["countyName"],
-            #         "docketNumber": last_successful_docket,
-            #         "docketYear": JOB_CONFIG["docketYear"],
-            #         "docketType": JOB_CONFIG["docketType"]
-            #     }
+            log.info(f"Scraping docket: {case_no} -> {final_url}")
 
-            #     try:
-            #         update_response = api_client.post("/WI_County_DocketNumber_UPDATE", update_payload)
-            #         log.info(f"✅ UPDATE API called with docket {last_successful_docket}: {update_response}")
-            #     except Exception as e:
-            #         log.error(f"❌ UPDATE API failed: {e}")
-            # else:
-            #     log.info("ℹ️ No new successful dockets processed in this run. Skipping UPDATE API call.")
+            scraper = WisconsinScraper(config=JOB_CONFIG)
+            results = await scraper.run_scraper()
 
-            break
+            
+                
+            # ----------------------------------------------------
+            # ❌ CASE 1 — SCRAPER FAILURE
+            # ----------------------------------------------------
+            if results is None:
+                log.error(f"❌ Scraper failed for case {case_no}. Adding next job and stopping.")
 
-        # last_successful_docket = docket_number
+                prev_docket = str(int(JOB_CONFIG["docketNumber"]) - 1).zfill(len(JOB_CONFIG["docketNumber"]))
 
-        # Save HTML and JSON
-        html_path = save_html_file(
-            results.get("html", ""), 
-            JOB_CONFIG["stateAbbreviation"],
-            str(JOB_CONFIG["countyNo"]),
-            str(JOB_CONFIG["docketYear"]),
-            str(JOB_CONFIG["docketType"]),
-            docket_number
-        )
+                next_job_payload = {
+                    "courtOfficeDetails": {
+                        "InitialURL": JOB_CONFIG["InitialURL"],
+                        "stateName": JOB_CONFIG["stateName"],
+                        "stateAbbreviation": JOB_CONFIG["stateAbbreviation"],
+                        "urlFormat": court_details.get("urlFormat"),
+                        "countyNo": JOB_CONFIG["countyNo"],
+                        "countyName": JOB_CONFIG["countyName"],
+                        "docketNumber": prev_docket,
+                        "docketYear": JOB_CONFIG["docketYear"],
+                        "docketType": JOB_CONFIG["docketType"]
+                    }
+                }
+
+                try:
+                    add_response = api_client.post("/WI_Downloader_Job_To_SQS_ADD", next_job_payload)
+                    log.info(f"Next job added (failure case): {add_response}")
+                except Exception as e:
+                    log.error(f"Failed to add next job: {e}")
+
+                break
+
+            # ----------------------------------------------------
+            # ❗ CASE 2 — SUCCESS BUT NO RECORD FOUND
+            # ----------------------------------------------------
+            if html_indicates_unavailable(results.get("html")):
+                log.warning(f"⚠ Case {case_no} indicates 'no record found'. Stopping loop.")
+
+                # Only call UPDATE API if we processed NEW successful dockets in this run
+                # Check if last_successful_docket is greater than the initial docket we started with
+                initial_docket_number = str(start_number - 1).zfill(len(JOB_CONFIG["docketNumber"]))
+
+                if last_successful_docket and last_successful_docket > initial_docket_number:
+                    update_payload = {
+                        "stateName": JOB_CONFIG["stateName"],
+                        "countyNo": JOB_CONFIG["countyNo"],
+                        "countyName": JOB_CONFIG["countyName"],
+                        "docketNumber": last_successful_docket,
+                        "docketYear": JOB_CONFIG["docketYear"],
+                        "docketType": JOB_CONFIG["docketType"]
+                    }
+
+                    try:
+                        update_response = api_client.post("/WI_County_DocketNumber_UPDATE", update_payload)
+                        log.info(f"✅ UPDATE API called with docket {last_successful_docket}: {update_response}")
+                    except Exception as e:
+                        log.error(f"❌ UPDATE API failed: {e}")
+                else:
+                    log.info("ℹ️ No new successful dockets processed in this run. Skipping UPDATE API call.")
+
+                break
+
+            # last_successful_docket = docket_number
+
+            # Save HTML and JSON
+            html_path = save_html_file(
+                results.get("html", ""), 
+                JOB_CONFIG["stateAbbreviation"],
+                str(JOB_CONFIG["countyNo"]),
+                str(JOB_CONFIG["docketYear"]),
+                str(JOB_CONFIG["docketType"]),
+                docket_number
+            )
+            
+            log.info(f"Saved HTML: {html_path}")
+            
+            # Parse saved html and produce structured json
+            json_obj = parse_html_file_to_json(html_path, JOB_CONFIG)
+            json_path = save_json_file(
+                json_obj, 
+                JOB_CONFIG["stateAbbreviation"],
+                str(JOB_CONFIG["countyNo"]),
+                str(JOB_CONFIG["docketYear"]),
+                str(JOB_CONFIG["docketType"]),
+                docket_number
+            )
+            log.info(f"Saved JSON: {json_path}")
+
+        # ----------------------------------------
+        # GROUP ALL CASES AFTER SCRAPING IS DONE
+        # ----------------------------------------
+        log.info("\n" + "="*60)
+        log.info("All scraping complete! Starting case grouping...")
+        log.info("="*60)
+
+        # Track existing files BEFORE grouping
+        existing_grouped_files = set()
+        if os.path.exists(GROUPED_OUTPUT_DIR):
+            existing_grouped_files = set(os.listdir(GROUPED_OUTPUT_DIR))
+
+        # # Run grouping
+        run_grouping(data_dir=JSON_OUTPUT_DIR, output_dir=GROUPED_OUTPUT_DIR)
+
+        # Find NEW files AFTER grouping
+        current_grouped_files = set()
+        if os.path.exists(GROUPED_OUTPUT_DIR):
+            current_grouped_files = set(os.listdir(GROUPED_OUTPUT_DIR))
+        new_files = current_grouped_files - existing_grouped_files
+
+        # Send each NEW file to INSERT API (only if we scraped new data this run)
+        initial_docket_number = str(start_number - 1).zfill(len(court_details.get("docketNumber")))
+        has_new_data = last_successful_docket and last_successful_docket > initial_docket_number
+
+        if new_files and has_new_data:
+            log.info(f"\n📤 Sending {len(new_files)} new grouped files to INSERT API...")
+            for filename in new_files:
+                filepath = os.path.join(GROUPED_OUTPUT_DIR, filename)
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    grouped_data = json.load(f)
+
+                try:
+                    api_payload = [grouped_data]
+                    insert_response = api_client.post("/WI_DataDockets_INSERT", api_payload)
+                    log.info(f"✅ INSERT API called for {filename}: {insert_response}")
+                except Exception as e:
+                    log.error(f"❌ INSERT API failed for {filename}: {e}")
+                    results=None
+        elif new_files and not has_new_data:
+            log.info("ℹ️ New grouped files exist but no new data was scraped in this run. Skipping INSERT API.")
+        else:
+            log.info("ℹ️ No new grouped files created")
         
-        log.info(f"Saved HTML: {html_path}")
+        log.info("\n" + "="*60)
+        log.info("✅ ALL TASKS COMPLETE!")
+        log.info("="*60)
         
-        # Parse saved html and produce structured json
-        json_obj = parse_html_file_to_json(html_path, JOB_CONFIG)
-        json_path = save_json_file(
-            json_obj, 
-            JOB_CONFIG["stateAbbreviation"],
-            str(JOB_CONFIG["countyNo"]),
-            str(JOB_CONFIG["docketYear"]),
-            str(JOB_CONFIG["docketType"]),
-            docket_number
-        )
-        log.info(f"Saved JSON: {json_path}")
-
-    # ----------------------------------------
-    # GROUP ALL CASES AFTER SCRAPING IS DONE
-    # ----------------------------------------
-    log.info("\n" + "="*60)
-    log.info("All scraping complete! Starting case grouping...")
-    log.info("="*60)
-
-    # # Track existing files BEFORE grouping
-    # existing_grouped_files = set()
-    # if os.path.exists(GROUPED_OUTPUT_DIR):
-    #     existing_grouped_files = set(os.listdir(GROUPED_OUTPUT_DIR))
-
-    # # Run grouping
-    run_grouping(data_dir=JSON_OUTPUT_DIR, output_dir=GROUPED_OUTPUT_DIR)
-
-    
-    # ----------------------------------------
-    # MAP GROUPED DATA TO SCHEMA FORMAT
-    # ----------------------------------------
-    log.info("\n" + "="*60)
-    log.info("Grouping complete! Starting schema mapping...")
-    log.info("="*60)
-    
-    from schema_mapper import process_all_grouped_files
-    process_all_grouped_files(
-        grouped_dir=GROUPED_OUTPUT_DIR,
-        mapped_dir="data/mappeddata",
-        schema_file="test.json"
-    )
-
-    # # Find NEW files AFTER grouping
-    # current_grouped_files = set()
-    # if os.path.exists(GROUPED_OUTPUT_DIR):
-    #     current_grouped_files = set(os.listdir(GROUPED_OUTPUT_DIR))
-    # new_files = current_grouped_files - existing_grouped_files
-
-    # # Send each NEW file to INSERT API (only if we scraped new data this run)
-    # initial_docket_number = str(start_number - 1).zfill(len(court_details.get("docketNumber")))
-    # has_new_data = last_successful_docket and last_successful_docket > initial_docket_number
-
-    # if new_files and has_new_data:
-    #     log.info(f"\n📤 Sending {len(new_files)} new grouped files to INSERT API...")
-    #     for filename in new_files:
-    #         filepath = os.path.join(GROUPED_OUTPUT_DIR, filename)
-    #         with open(filepath, 'r', encoding='utf-8') as f:
-    #             grouped_data = json.load(f)
-
-    #         try:
-    #             api_payload = [grouped_data]
-    #             insert_response = api_client.post("/WI_DataDockets_INSERT", api_payload)
-    #             log.info(f"✅ INSERT API called for {filename}: {insert_response}")
-    #         except Exception as e:
-    #             log.error(f"❌ INSERT API failed for {filename}: {e}")
-    # elif new_files and not has_new_data:
-    #     log.info("ℹ️ New grouped files exist but no new data was scraped in this run. Skipping INSERT API.")
-    # else:
-    #     log.info("ℹ️ No new grouped files created")
-    
-    log.info("\n" + "="*60)
-    log.info("✅ ALL TASKS COMPLETE!")
-    log.info("="*60)
+        # Determine if VPN reconnection is needed
+        needs_vpn_reconnect = False
+        
+        if results is None:
+            # Case 1: Error occurred, we made add_job_to_queue API call
+            log.info("=4 Error occurred in job - VPN reconnection required")
+            needs_vpn_reconnect = True
+        elif should_reconnect_vpn():
+            # Case 2: Time limit reached (successful jobs running continuously)
+            needs_vpn_reconnect = True
+        
+        # Reconnect VPN if needed (this pauses everything)
+        if needs_vpn_reconnect:
+            reconnect_vpn_if_needed()
+        else:
+            elapsed = (time.time() - last_vpn_reconnect_time) / 60
+            log.info(f"9  VPN reconnection not needed (elapsed: {elapsed:.1f} minutes)")
+        
+        log.info("= Fetching next job from queue...")
+        
+        # Small delay before next job
+        await asyncio.sleep(2)
 
 if __name__ == "__main__":
     asyncio.run(main())
