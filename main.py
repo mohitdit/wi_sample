@@ -119,10 +119,31 @@ def html_indicates_unavailable(html: str) -> bool:
         return True
     return (UNAVAILABLE_SNIPPET_1.lower() in lower) and (UNAVAILABLE_SNIPPET_2.lower() in lower)
 
+async def initialize_cookies_if_needed():
+    """Check if cookies exist, if not run the cookie saver"""
+    cookie_file = "wcca_cookies.json"
+    
+    if not os.path.exists(cookie_file):
+        log.info("="*60)
+        log.info("🍪 No cookies found - Running cookie initialization...")
+        log.info("="*60)
+        
+        # Import and run save_cookies
+        from save_cookies import save_wcca_cookies
+        await save_wcca_cookies()
+        
+        log.info("✅ Cookies saved successfully")
+        log.info("="*60 + "\n")
+    else:
+        log.info("✅ Existing cookies found - skipping initialization\n")
+
 # ----------------------------------------
 # MAIN LOOP
 # ----------------------------------------
 async def main():
+    # Initialize cookies on the first run
+    await initialize_cookies_if_needed()
+
     # Initialize VPN once at startup
     initialize_vpn()
     
@@ -136,8 +157,8 @@ async def main():
 
             court_details = api_response.get("courtOfficeDetails")
             if not court_details:
-                log.error("No docket details received from API.")
-                return
+                log.error("🛑 No more jobs in queue - Stopping loop")
+                break
 
             # Create JOB_CONFIG from API response
             JOB_CONFIG = {
