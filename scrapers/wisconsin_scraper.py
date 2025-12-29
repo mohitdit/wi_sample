@@ -61,9 +61,9 @@ class WisconsinScraper(BaseScraper):
 
         # Click "Click here" to reveal puzzle
         try:
-            await page.click("text=Click here", timeout=1000)
+            await page.click("text=Click here", timeout=30000)
             log.info("🖱 Clicked 'Click here' to reveal CAPTCHA.")
-            await page.wait_for_timeout(1000)
+            await page.wait_for_timeout(30000)
         except Exception as e:
             log.error(f"❌ Failed to click 'Click here': {e}")
             return None

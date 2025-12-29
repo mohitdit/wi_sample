@@ -1,0 +1,24 @@
+                            <<< Needed Imports and Libraries >>>
+
+=> pip install requests            -         To send HTTP API calls
+=> pip install boto3               -         To load AWS credentials
+=> pip install botocore            -         To generate SigV4 signed AWS requests
+=> pip install playwright          -         Python library
+=> playwright install              -         Browser engines
+=> pip install playwright-stealth  -         Makes automated browser harder to detect   
+=> pip install beautifulsoup4      -         HTML parsing
+=> pip install pywinauto           -         For GUI automation of Windows applications
+=> pip install psutil              -         For process management and checking running apps
+
+                                <<< Steps to run the application >>>
+
+Step 1: Initially Cookies file to make a run. so the command for saving cookies is "python save_cookies.py" (for any file to run the command is { python filename.py}).
+
+Step 2: By running the cookies file, a browser opened and there starting step need to "click on I agree" and then click "Enter" in the terminal.
+
+Step 3: Now run the main command "python main.py" for the scrapping.
+
+Step 4: By running the main file, then a new page gets appear in the browser and contains captcha details, a "click here" button appears if clicks it then a captcha will
+        presents and need to solve the captcha manually for every "100 cases" in the linux but no manual solving needed in the windows, automatically the captcha can be bypassed.
+
+=> If the captcha solved successfully, then the html and json files can be started downloading.                                                                                                                                                
