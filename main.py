@@ -282,8 +282,8 @@ async def main():
         # STEP 3: SCRAPING LOOP WITH SKIP COUNT LOGIC
         # ----------------------------------------
         start_number = int(docket_number) + 1
-        last_successful_docket = str(docket_number).zfill(6)  # For UPDATE API
-        last_inserted_docket = str(docket_number).zfill(6)    # Track last SUCCESSFULLY INSERTED docket
+        last_successful_docket = int(docket_number)  # For UPDATE API
+        last_inserted_docket = int(docket_number)    # Track last SUCCESSFULLY INSERTED docket
         scraper_error_occurred = False
         captcha_error_occurred = False
         consecutive_failures = 0
@@ -330,16 +330,28 @@ async def main():
             # Reset network error counter on success
             network_error_count = 0
 
-            # ISSUE 2 FIX: Check for CAPTCHA failure or empty HTML
+            # ISSUE 2 FIX: Reliable CAPTCHA detection - Check if we got valid case data
             html_content = results.get("html", "")
-            if not html_content or len(html_content.strip()) < 100:  # Too short = likely failed
-                log.error(f"❌ Empty or invalid HTML received for case {case_no} (likely CAPTCHA failure)")
+            
+            # Check if the scraper itself reported failure
+            if results.get("status") == "failed":
+                log.error(f"❌ Scraper reported failure for case {case_no} (CAPTCHA not solved)")
                 captcha_error_occurred = True
                 break
-
-            # Check if CAPTCHA page is still present in HTML
-            if "Please complete the CAPTCHA" in html_content:
-                log.error(f"❌ CAPTCHA still present in HTML for case {case_no}")
+            
+            # More reliable check: Look for actual case content indicators
+            # A valid case page MUST contain "Case Summary" or case detail tables
+            has_case_summary = "Case Summary" in html_content or "caseSummary" in html_content
+            has_case_detail = "caseDetail" in html_content or "Case Detail" in html_content
+            
+            if not html_content:
+                log.error(f"❌ Empty HTML received for case {case_no} (scraper failure)")
+                captcha_error_occurred = True
+                break
+            
+            if not (has_case_summary or has_case_detail):
+                log.error(f"❌ No valid case content found for case {case_no} (CAPTCHA likely not solved)")
+                log.error(f"   HTML length: {len(html_content)} bytes")
                 captcha_error_occurred = True
                 break
 
@@ -378,7 +390,7 @@ async def main():
             # SEND TO INSERT API IMMEDIATELY
             # ----------------------------------------
             insert_payload = {
-                "agencyID": str(county_no).zfill(4),  # Pad to 4 digits (e.g., "0004")
+                "agencyID": county_no, 
                 "agencyName": county_name,
                 "datasetID": dataset_id,  # Format: WI-901-TR
                 "year": str(docket_year),
@@ -387,7 +399,7 @@ async def main():
                 "docketType": docket_type,
                 "emailID": ""
             }
-            
+            log.info(f"📤 INSERT API payload for {case_no}: {insert_payload}")
             try:
                 insert_response = api_client.post("/WI_CounterBasedEntry_INSERT", insert_payload)
                 log.info(f"📤 INSERT API called for {case_no}: {insert_response}")
@@ -445,7 +457,7 @@ async def main():
                     "docketType": docket_type
                 }
             }
-            
+            log.info(f"   ADD API payload: {add_payload}")
             try:
                 add_response = api_client.post("/WI_Downloader_Job_To_SQS_ADD", add_payload)
                 log.info(f"✅ ADD API called: {add_response}")
@@ -469,7 +481,7 @@ async def main():
                     "docketYear": docket_year,
                     "docketNumber": docket_number_int  # Send as integer (e.g., 183 not 000183)
                 }
-                
+                log.info(f"   UPDATE API payload: {update_payload}")
                 log.info(f"   Updating to docket: {docket_number_int}")
                 
                 try:
@@ -479,6 +491,7 @@ async def main():
                     log.error(f"❌ UPDATE API failed: {e}")
             else:
                 log.info("ℹ️ No new data scraped - No UPDATE call needed")
+        
         # # VPN reconnection logic
         # needs_vpn_reconnect = scraper_error_occurred or should_reconnect_vpn()
         
