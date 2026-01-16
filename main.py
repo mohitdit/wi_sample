@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 from scrapers.wisconsin_scraper import WisconsinScraper
 from utils.logger import log
-# from vpn.vpnbot import SurfsharkManager
+from vpn.vpnbot import SurfsharkManager
 import time
 from api.api import ApiClient
 from config import DATASET_ID_MAP
@@ -14,50 +14,50 @@ import sys
 # ----------------------------------------
 # VPN MANAGEMENT GLOBALS
 # ----------------------------------------
-# vpn_manager = None
-# last_vpn_reconnect_time = None
+vpn_manager = None
+last_vpn_reconnect_time = None
 
-# def initialize_vpn():
-#     """Initialize VPN manager and connect"""
-#     global vpn_manager, last_vpn_reconnect_time
-#     vpn_manager = SurfsharkManager()
-#     log.info("= Initializing VPN connection...")
-#     vpn_manager.reconnect()
-#     last_vpn_reconnect_time = time.time()
-#     log.info(f"  VPN connected at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+def initialize_vpn():
+    """Initialize VPN manager and connect"""
+    global vpn_manager, last_vpn_reconnect_time
+    vpn_manager = SurfsharkManager()
+    log.info("= Initializing VPN connection...")
+    vpn_manager.reconnect()
+    last_vpn_reconnect_time = time.time()
+    log.info(f"  VPN connected at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
-# def should_reconnect_vpn():
-#     """Check if VPN should reconnect based on time interval"""
-#     global last_vpn_reconnect_time
+def should_reconnect_vpn():
+    """Check if VPN should reconnect based on time interval"""
+    global last_vpn_reconnect_time
     
-#     if last_vpn_reconnect_time is None:
-#         return True
+    if last_vpn_reconnect_time is None:
+        return True
     
-#     interval_minutes = vpn_manager.get_reconnect_interval_minutes()
-#     elapsed_seconds = time.time() - last_vpn_reconnect_time
-#     elapsed_minutes = elapsed_seconds / 60
+    interval_minutes = vpn_manager.get_reconnect_interval_minutes()
+    elapsed_seconds = time.time() - last_vpn_reconnect_time
+    elapsed_minutes = elapsed_seconds / 60
     
-#     if elapsed_minutes >= interval_minutes:
-#         log.info(f"ï¿½ VPN reconnection needed: {elapsed_minutes:.1f} minutes elapsed (limit: {interval_minutes} minutes)")
-#         return True
+    if elapsed_minutes >= interval_minutes:
+        log.info(f"ï¿½ VPN reconnection needed: {elapsed_minutes:.1f} minutes elapsed (limit: {interval_minutes} minutes)")
+        return True
     
-#     return False
+    return False
 
-# def reconnect_vpn_if_needed():
-#     """Reconnect VPN and update timestamp"""
-#     global last_vpn_reconnect_time
+def reconnect_vpn_if_needed():
+    """Reconnect VPN and update timestamp"""
+    global last_vpn_reconnect_time
     
-#     log.info("\n" + "="*60)
-#     log.info("=  VPN RECONNECTION IN PROGRESS")
-#     log.info("="*60)
-#     log.info("ï¿½   All operations paused during VPN reconnection...")
+    log.info("\n" + "="*60)
+    log.info("=  VPN RECONNECTION IN PROGRESS")
+    log.info("="*60)
+    log.info("ï¿½   All operations paused during VPN reconnection...")
     
-#     vpn_manager.reconnect()
-#     last_vpn_reconnect_time = time.time()
+    vpn_manager.reconnect()
+    last_vpn_reconnect_time = time.time()
     
-#     log.info(f"  VPN reconnected at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-#     log.info("ï¿½   Operations resumed")
-#     log.info("="*60 + "\n")
+    log.info(f"  VPN reconnected at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    log.info("ï¿½   Operations resumed")
+    log.info("="*60 + "\n")
 
 def build_dataset_id(state_code: str, case_type: str) -> str:
     """
@@ -95,19 +95,24 @@ def signal_handler(sig, frame):
     if current_job_state["last_successful_docket"] and current_job_state["api_client"]:
         log.info("📤 Calling ADD API to re-queue job from last successful docket...")
         try:
+            # Format the URL with actual values
+            formatted_docket = str(current_job_state["last_successful_docket"]).zfill(6)
+            formatted_url = f"https://wcca.wicourts.gov/caseDetail.html?caseNo={current_job_state['docket_year']}{current_job_state['docket_type']}{formatted_docket}&countyNo={current_job_state['county_no']}&index=0&isAdvanced=true&mode=details"
+
             add_payload = {
                 "courtOfficeDetails": {
                     "InitialURL": current_job_state["initial_url"],
                     "stateName": "WISCONSIN",
                     "stateAbbreviation": "WI",
-                    "urlFormat": current_job_state["url_format"],
-                    "countyNo": current_job_state["county_no"],
+                    "urlFormat": formatted_url,
+                    "countyNo": int(current_job_state["county_no"]),
                     "countyName": current_job_state["county_name"],
-                    "docketNumber": current_job_state["last_successful_docket"],
-                    "docketYear": current_job_state["docket_year"],
+                    "docketNumber": int(current_job_state["last_successful_docket"]),
+                    "docketYear": int(current_job_state["docket_year"]),
                     "docketType": current_job_state["docket_type"]
                 }
             }
+            # log.info(f"  ADD API Payload: {add_payload}")
             add_response = current_job_state["api_client"].post("/WI_Downloader_Job_To_SQS_ADD", add_payload)
             log.info(f"✅ ADD API called successfully: {add_response}")
         except Exception as e:
@@ -202,7 +207,7 @@ async def main():
     await initialize_cookies_if_needed()
 
     # Initialize VPN once at startup
-    # initialize_vpn()
+    initialize_vpn()
     
     while not shutdown_requested:
         api_client = ApiClient()
@@ -390,16 +395,16 @@ async def main():
             # SEND TO INSERT API IMMEDIATELY
             # ----------------------------------------
             insert_payload = {
-                "agencyID": county_no, 
+                "agencyID": int(county_no),  # Convert to integer
                 "agencyName": county_name,
                 "datasetID": dataset_id,  # Format: WI-901-TR
-                "year": str(docket_year),
-                "seqNo": current_docket_number,
+                "year": int(docket_year),  # Convert to integer
+                "seqNo": int(current_docket_number),  # Convert to integer
                 "htmlContent": html_content,
                 "docketType": docket_type,
                 "emailID": ""
             }
-            log.info(f"📤 INSERT API payload for {case_no}: {insert_payload}")
+            # log.info(f"📤 INSERT API payload for {case_no}: {insert_payload}")
             try:
                 insert_response = api_client.post("/WI_CounterBasedEntry_INSERT", insert_payload)
                 log.info(f"📤 INSERT API called for {case_no}: {insert_response}")
@@ -444,26 +449,37 @@ async def main():
             log.info(f"\n🚨 {error_type} error occurred - Calling ADD API to re-queue job")
             log.info(f"   Re-queuing from last successfully inserted: {last_inserted_docket}")
             
+            # Format the URL with actual values
+            formatted_docket = str(last_inserted_docket).zfill(6)
+            formatted_url = f"https://wcca.wicourts.gov/caseDetail.html?caseNo={docket_year}{docket_type}{formatted_docket}&countyNo={county_no}&index=0&isAdvanced=true&mode=details"
+
             add_payload = {
                 "courtOfficeDetails": {
                     "InitialURL": initial_url,
                     "stateName": "WISCONSIN",
                     "stateAbbreviation": "WI",
-                    "urlFormat": url_format,
-                    "countyNo": county_no,
+                    "urlFormat": formatted_url,
+                    "countyNo": int(county_no),
                     "countyName": county_name,
-                    "docketNumber": last_inserted_docket,  # Use last INSERTED docket
-                    "docketYear": docket_year,
+                    "docketNumber": int(last_inserted_docket),  # Use last INSERTED docket
+                    "docketYear": int(docket_year),
                     "docketType": docket_type
                 }
             }
-            log.info(f"   ADD API payload: {add_payload}")
+            # log.info(f"   ADD API payload: {add_payload}")
             try:
                 add_response = api_client.post("/WI_Downloader_Job_To_SQS_ADD", add_payload)
                 log.info(f"✅ ADD API called: {add_response}")
             except Exception as e:
                 log.error(f"❌ ADD API failed: {e}")
-            
+
+            if captcha_error_occurred:
+                log.info("="*60)
+                log.info("🛑 Captcha Not Solved - Stopping Program")
+                log.info("Job has been re-queued. Please solve captcha manually....")
+                log.info("="*60)
+                sys.exit(0)
+                
             # Add delay before fetching next job after errors
             log.info("⏸ Waiting 60 seconds before fetching next job due to errors...")
             await asyncio.sleep(60)
@@ -478,10 +494,10 @@ async def main():
                 
                 update_payload = {
                     "recordId": record_id,
-                    "docketYear": docket_year,
+                    "docketYear": int(docket_year),
                     "docketNumber": docket_number_int  # Send as integer (e.g., 183 not 000183)
                 }
-                log.info(f"   UPDATE API payload: {update_payload}")
+                # log.info(f"   UPDATE API payload: {update_payload}")
                 log.info(f"   Updating to docket: {docket_number_int}")
                 
                 try:
@@ -492,17 +508,17 @@ async def main():
             else:
                 log.info("ℹ️ No new data scraped - No UPDATE call needed")
         
-        # # VPN reconnection logic
-        # needs_vpn_reconnect = scraper_error_occurred or should_reconnect_vpn()
+        # VPN reconnection logic
+        needs_vpn_reconnect = scraper_error_occurred or should_reconnect_vpn()
         
-        # if needs_vpn_reconnect:
-        #     reconnect_vpn_if_needed()
-        # else:
-        #     elapsed = (time.time() - last_vpn_reconnect_time) / 60
-        #     log.info(f"ℹ️ VPN reconnection not needed (elapsed: {elapsed:.1f} minutes)")
+        if needs_vpn_reconnect:
+            reconnect_vpn_if_needed()
+        else:
+            elapsed = (time.time() - last_vpn_reconnect_time) / 60
+            log.info(f"ℹ️ VPN reconnection not needed (elapsed: {elapsed:.1f} minutes)")
         
-        # log.info("🔄 Fetching next job from queue...")
-        # await asyncio.sleep(2)
+        log.info("🔄 Fetching next job from queue...")
+        await asyncio.sleep(2)
 
 if __name__ == "__main__":
     asyncio.run(main())

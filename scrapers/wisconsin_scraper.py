@@ -121,7 +121,8 @@ class WisconsinScraper(BaseScraper):
         """Run the scraper for the current JOB_CONFIG."""
         playwright,context, page = await get_browser()
 
-        case_url = self.build_case_url()
+        # Get the pre-built URL from config
+        case_url = self.config.get("case_url")
         docket = f"{self.config['docketYear']}{self.config['docketType']}{self.config['docketNumber']}"
 
         log.info(f"--- Starting scrape for {docket} ---")
