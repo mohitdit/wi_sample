@@ -335,33 +335,18 @@ async def main():
             # Reset network error counter on success
             network_error_count = 0
 
-            # ISSUE 2 FIX: Reliable CAPTCHA detection - Check if we got valid case data
+            # Check scraper status
             html_content = results.get("html", "")
+            scraper_status = results.get("status", "ok")
             
-            # Check if the scraper itself reported failure
-            if results.get("status") == "failed":
-                log.error(f"❌ Scraper reported failure for case {case_no} (CAPTCHA not solved)")
+            # CAPTCHA failure - stop immediately
+            if scraper_status == "failed":
+                log.error(f"❌ Scraper reported CAPTCHA failure for case {case_no}")
                 captcha_error_occurred = True
                 break
             
-            # More reliable check: Look for actual case content indicators
-            # A valid case page MUST contain "Case Summary" or case detail tables
-            has_case_summary = "Case Summary" in html_content or "caseSummary" in html_content
-            has_case_detail = "caseDetail" in html_content or "Case Detail" in html_content
-            
-            if not html_content:
-                log.error(f"❌ Empty HTML received for case {case_no} (scraper failure)")
-                captcha_error_occurred = True
-                break
-            
-            if not (has_case_summary or has_case_detail):
-                log.error(f"❌ No valid case content found for case {case_no} (CAPTCHA likely not solved)")
-                log.error(f"   HTML length: {len(html_content)} bytes")
-                captcha_error_occurred = True
-                break
-
-            # ⚠ CASE 2 – NO RECORD FOUND
-            if html_indicates_unavailable(html_content):
+            # Case unavailable - legitimate skip
+            if scraper_status == "unavailable":
                 log.warning(f"⚠ Case {case_no} indicates 'no record found'.")
                 consecutive_failures += 1
                 
@@ -373,23 +358,20 @@ async def main():
                     log.info(f"⏭ Skipping to next docket. Failures: {consecutive_failures}/{consecutive_skip_count}")
                     i += 1
                     continue
+            
+            # Additional safety check for empty HTML
+            if not html_content:
+                log.error(f"❌ Empty HTML received for case {case_no} (network error)")
+                network_error_count += 1
+                if network_error_count >= MAX_NETWORK_ERRORS:
+                    scraper_error_occurred = True
+                    break
+                else:
+                    await asyncio.sleep(30)
+                    continue
 
             # ✅ SUCCESS - Send to INSERT API (NO HTML SAVING)
             consecutive_failures = 0  # Reset failure counter
-            # last_successful_docket = current_docket_number  # Update last successful
-            # total_scraped += 1
-            
-            # # Save HTML file
-            # html_path = save_html_file(
-            #     results.get("html", ""), 
-            #     JOB_CONFIG["stateAbbreviation"],
-            #     str(JOB_CONFIG["countyNo"]),
-            #     str(JOB_CONFIG["docketYear"]),
-            #     str(JOB_CONFIG["docketType"]),
-            #     current_docket_number,
-            #     html_dir
-            # )
-            # log.info(f"💾 Saved HTML: {html_path}")
             
             # ----------------------------------------
             # SEND TO INSERT API IMMEDIATELY
@@ -404,7 +386,7 @@ async def main():
                 "docketType": docket_type,
                 "emailID": ""
             }
-            # log.info(f"📤 INSERT API payload for {case_no}: {insert_payload}")
+            
             try:
                 insert_response = api_client.post("/WI_CounterBasedEntry_INSERT", insert_payload)
                 log.info(f"📤 INSERT API called for {case_no}: {insert_response}")
@@ -420,18 +402,6 @@ async def main():
                 # If INSERT fails, treat it as an error and break
                 scraper_error_occurred = True
                 break
-            
-            # ISSUE 1 FIX: Commented out HTML saving
-            # html_path = save_html_file(
-            #     html_content, 
-            #     JOB_CONFIG["stateAbbreviation"],
-            #     str(JOB_CONFIG["countyNo"]),
-            #     str(JOB_CONFIG["docketYear"]),
-            #     str(JOB_CONFIG["docketType"]),
-            #     current_docket_number,
-            #     html_dir
-            # )
-            # log.info(f"💾 Saved HTML: {html_path}")
             
             i += 1
 

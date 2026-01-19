@@ -10,6 +10,20 @@ from utils.logger import log
 
 COOKIE_FILE = "wcca_cookies.json"
 
+# Helper function to detect unavailable cases
+def html_indicates_unavailable(html: str) -> bool:
+    """Check if HTML indicates case is unavailable/doesn't exist"""
+    if not html:
+        return True
+    lower = html.lower()
+    UNAVAILABLE_TITLE = "Your request could not be processed."
+    UNAVAILABLE_SNIPPET_1 = "Your request could not be processed."
+    UNAVAILABLE_SNIPPET_2 = "That case does not exist or you are not allowed to see it."
+    
+    if UNAVAILABLE_TITLE.lower() in lower:
+        return True
+    return (UNAVAILABLE_SNIPPET_1.lower() in lower) and (UNAVAILABLE_SNIPPET_2.lower() in lower)
+
 
 class WisconsinScraper(BaseScraper):
 
@@ -198,7 +212,17 @@ class WisconsinScraper(BaseScraper):
             #     await playwright.stop()
             #     return None
 
-        # --- STEP 4: VERIFY SUCCESS & SAVE COOKIES ---
+        # --- STEP 4: GET HTML AND CHECK STATUS ---
+        html = await page.content()
+        
+        # FIRST: Check if this is an "unavailable case" (case doesn't exist)
+        if html_indicates_unavailable(html):
+            log.info("ℹ️ Case does not exist - legitimate unavailable case.")
+            await context.close()
+            await playwright.stop()
+            return {"docket": docket, "html": html, "status": "unavailable"}
+        
+        # SECOND: Check if Case Summary is present (successful scrape)
         try:
             await page.wait_for_selector("text=Case Summary", timeout=15000)
             log.info("✅ Case Summary Loaded.")
@@ -208,20 +232,23 @@ class WisconsinScraper(BaseScraper):
             with open(COOKIE_FILE, "w", encoding="utf-8") as f:
                 json.dump(cookies, f, indent=2)
             log.info("💾 Session cookies saved for future use.")
+            
+            await context.close()
+            await playwright.stop()
+            return {"docket": docket, "html": html, "status": "ok"}
 
         except PlaywrightTimeoutError:
-            log.error("❌ Could not load Case Summary. CAPTCHA failed or case unavailable.")
-            html = await page.content()
-            await context.close()
-            # await browser.close()
-            await playwright.stop()
-            return {"docket": docket, "html": html, "status": "failed"}
-
-        # --- STEP 5: RETURN HTML ---
-        html = await page.content()
-
-        await context.close()
-        # await browser.close()
-        await playwright.stop()
-
-        return {"docket": docket, "html": html, "status": "ok"}
+            # THIRD: Check if CAPTCHA is present (real CAPTCHA failure)
+            has_captcha_text = "Please complete the CAPTCHA" in html or "hCaptcha" in html
+            
+            if has_captcha_text:
+                log.error("❌ CAPTCHA detected but not solved.")
+                await context.close()
+                await playwright.stop()
+                return {"docket": docket, "html": html, "status": "failed"}
+            else:
+                # Unknown state - treat as unavailable to be safe
+                log.warning("⚠️ Could not find Case Summary and no CAPTCHA detected - treating as unavailable.")
+                await context.close()
+                await playwright.stop()
+                return {"docket": docket, "html": html, "status": "unavailable"}
